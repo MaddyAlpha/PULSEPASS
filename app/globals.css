@@ -1,0 +1,278 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* ============================================================
+   PulsePass — Global Design System
+   ============================================================ */
+
+@layer base {
+  :root {
+    --cyber-green: #00FF66;
+    --cyber-green-dim: #00E55C;
+    --obsidian-900: #0A0D0F;
+    --obsidian-800: #0F1317;
+    --obsidian-700: #121619;
+  }
+
+  * {
+    box-sizing: border-box;
+    margin: 0;
+    padding: 0;
+  }
+
+  html {
+    scroll-behavior: smooth;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+  }
+
+  body {
+    background-color: #0A0D0F;
+    color: #E8EDF2;
+    font-family: var(--font-inter), system-ui, sans-serif;
+    min-height: 100vh;
+    overflow-x: hidden;
+  }
+
+  ::selection {
+    background-color: rgba(0, 255, 102, 0.25);
+    color: #00FF66;
+  }
+
+  ::-webkit-scrollbar {
+    width: 6px;
+    height: 6px;
+  }
+
+  ::-webkit-scrollbar-track {
+    background: #0A0D0F;
+  }
+
+  ::-webkit-scrollbar-thumb {
+    background: rgba(0, 255, 102, 0.2);
+    border-radius: 3px;
+  }
+
+  ::-webkit-scrollbar-thumb:hover {
+    background: rgba(0, 255, 102, 0.4);
+  }
+}
+
+@layer components {
+  /* ── Glassmorphic Card ── */
+  .glass-card {
+    @apply relative rounded-2xl border;
+    background: rgba(255, 255, 255, 0.04);
+    border-color: rgba(255, 255, 255, 0.08);
+    backdrop-filter: blur(16px) saturate(1.5);
+    -webkit-backdrop-filter: blur(16px) saturate(1.5);
+    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.4), inset 0 1px 0 rgba(255, 255, 255, 0.05);
+  }
+
+  .glass-card-hover {
+    @apply glass-card transition-all duration-300;
+  }
+
+  .glass-card-hover:hover {
+    border-color: rgba(0, 255, 102, 0.2);
+    box-shadow: 0 8px 40px rgba(0, 0, 0, 0.5), 0 0 20px rgba(0, 255, 102, 0.08), inset 0 1px 0 rgba(255, 255, 255, 0.07);
+    transform: translateY(-2px);
+  }
+
+  /* ── Cyber Button ── */
+  .btn-cyber {
+    @apply relative inline-flex items-center gap-2 px-6 py-3 rounded-xl font-semibold text-sm;
+    @apply transition-all duration-200 outline-none;
+    background: linear-gradient(135deg, #00FF66 0%, #00E55C 100%);
+    color: #0A0D0F;
+    box-shadow: 0 0 20px rgba(0, 255, 102, 0.25);
+  }
+
+  .btn-cyber:hover {
+    box-shadow: 0 0 30px rgba(0, 255, 102, 0.45);
+    transform: translateY(-1px);
+  }
+
+  .btn-cyber:active {
+    transform: translateY(0px);
+    box-shadow: 0 0 15px rgba(0, 255, 102, 0.3);
+  }
+
+  .btn-cyber-outline {
+    @apply relative inline-flex items-center gap-2 px-6 py-3 rounded-xl font-semibold text-sm;
+    @apply transition-all duration-200 outline-none;
+    background: transparent;
+    border: 1px solid rgba(0, 255, 102, 0.4);
+    color: #00FF66;
+  }
+
+  .btn-cyber-outline:hover {
+    background: rgba(0, 255, 102, 0.08);
+    border-color: #00FF66;
+    box-shadow: 0 0 20px rgba(0, 255, 102, 0.15);
+  }
+
+  .btn-ghost {
+    @apply relative inline-flex items-center gap-2 px-5 py-2.5 rounded-xl font-medium text-sm;
+    @apply transition-all duration-200 outline-none;
+    background: transparent;
+    color: rgba(232, 237, 242, 0.7);
+    border: 1px solid rgba(255, 255, 255, 0.06);
+  }
+
+  .btn-ghost:hover {
+    background: rgba(255, 255, 255, 0.05);
+    border-color: rgba(255, 255, 255, 0.1);
+    color: #E8EDF2;
+  }
+
+  /* ── Cyber Input ── */
+  .input-cyber {
+    @apply w-full px-4 py-3 rounded-xl text-sm text-white outline-none;
+    @apply transition-all duration-200;
+    background: rgba(255, 255, 255, 0.05);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    color: #E8EDF2;
+  }
+
+  .input-cyber::placeholder {
+    color: rgba(232, 237, 242, 0.35);
+  }
+
+  .input-cyber:focus {
+    border-color: rgba(0, 255, 102, 0.5);
+    background: rgba(255, 255, 255, 0.07);
+    box-shadow: 0 0 0 3px rgba(0, 255, 102, 0.08);
+  }
+
+  /* ── Cyber Badge ── */
+  .badge-valid {
+    @apply inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-semibold;
+    background: rgba(0, 255, 102, 0.12);
+    color: #00FF66;
+    border: 1px solid rgba(0, 255, 102, 0.25);
+  }
+
+  .badge-used {
+    @apply inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-semibold;
+    background: rgba(255, 165, 0, 0.12);
+    color: #FFA500;
+    border: 1px solid rgba(255, 165, 0, 0.25);
+  }
+
+  .badge-expired {
+    @apply inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-semibold;
+    background: rgba(255, 50, 80, 0.12);
+    color: #FF3250;
+    border: 1px solid rgba(255, 50, 80, 0.25);
+  }
+
+  .badge-vip {
+    @apply inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-semibold;
+    background: linear-gradient(135deg, rgba(0, 255, 102, 0.15), rgba(0, 200, 82, 0.1));
+    color: #00FF66;
+    border: 1px solid rgba(0, 255, 102, 0.3);
+  }
+
+  /* ── Cyber Grid Background ── */
+  .cyber-grid {
+    background-image:
+      linear-gradient(rgba(0, 255, 102, 0.03) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(0, 255, 102, 0.03) 1px, transparent 1px);
+    background-size: 40px 40px;
+  }
+
+  /* ── Glow Text ── */
+  .text-glow-green {
+    color: #00FF66;
+    text-shadow: 0 0 20px rgba(0, 255, 102, 0.5);
+  }
+
+  .text-glow-subtle {
+    text-shadow: 0 0 40px rgba(0, 255, 102, 0.3);
+  }
+
+  /* ── Neon Border ── */
+  .border-cyber {
+    border-color: rgba(0, 255, 102, 0.3);
+  }
+
+  .border-cyber-glow {
+    border-color: rgba(0, 255, 102, 0.5);
+    box-shadow: 0 0 10px rgba(0, 255, 102, 0.1), inset 0 0 10px rgba(0, 255, 102, 0.02);
+  }
+
+  /* ── Section Divider ── */
+  .divider-cyber {
+    @apply relative flex items-center gap-4;
+  }
+
+  .divider-cyber::before,
+  .divider-cyber::after {
+    content: '';
+    @apply flex-1 h-px;
+    background: linear-gradient(to right, transparent, rgba(0, 255, 102, 0.2), transparent);
+  }
+
+  /* ── Ticket Card ── */
+  .ticket-card {
+    @apply relative rounded-3xl overflow-hidden;
+    background: linear-gradient(135deg, #0F1317 0%, #121619 100%);
+    border: 1px solid rgba(0, 255, 102, 0.15);
+    box-shadow: 0 20px 60px rgba(0, 0, 0, 0.6), 0 0 40px rgba(0, 255, 102, 0.08);
+  }
+
+  .ticket-card::before {
+    content: '';
+    @apply absolute inset-0;
+    background: linear-gradient(135deg, rgba(0, 255, 102, 0.04) 0%, transparent 60%);
+    pointer-events: none;
+  }
+
+  /* ── Scanner Overlay ── */
+  .scan-valid {
+    background: rgba(0, 255, 102, 0.15);
+    border: 2px solid #00FF66;
+    box-shadow: 0 0 40px rgba(0, 255, 102, 0.3), inset 0 0 40px rgba(0, 255, 102, 0.05);
+  }
+
+  .scan-invalid {
+    background: rgba(255, 50, 80, 0.15);
+    border: 2px solid #FF3250;
+    box-shadow: 0 0 40px rgba(255, 50, 80, 0.3), inset 0 0 40px rgba(255, 50, 80, 0.05);
+  }
+
+  /* ── Loading Shimmer ── */
+  .shimmer {
+    background: linear-gradient(
+      90deg,
+      rgba(255, 255, 255, 0.03) 25%,
+      rgba(255, 255, 255, 0.08) 50%,
+      rgba(255, 255, 255, 0.03) 75%
+    );
+    background-size: 200% 100%;
+    animation: shimmer 2s linear infinite;
+  }
+
+  /* ── Stat Card ── */
+  .stat-card {
+    @apply glass-card p-6 flex flex-col gap-2;
+  }
+}
+
+@layer utilities {
+  .no-scrollbar::-webkit-scrollbar { display: none; }
+  .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+
+  .text-balance { text-wrap: balance; }
+
+  .transition-cyber {
+    @apply transition-all duration-300 ease-out;
+  }
+
+  .gpu-accelerated {
+    transform: translateZ(0);
+    will-change: transform;
+  }
+}
