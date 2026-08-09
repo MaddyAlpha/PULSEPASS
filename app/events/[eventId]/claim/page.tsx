@@ -68,10 +68,19 @@ export default function ClaimPage() {
   const ticketType = searchParams.get('type') === 'vip' ? 'vip' : 'general'
   const supabase = createClient()
 
-  const videoRef = useRef<HTMLVideoElement>(null)
+  const videoRef = useRef<HTMLVideoElement | null>(null)
   const canvasRef = useRef<HTMLCanvasElement>(null)
   const sharpnessIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null)
   const streamRef = useRef<MediaStream | null>(null)
+
+  // Ref callback: fires the INSTANT the <video> element appears in the DOM
+  const videoCallbackRef = useCallback((el: HTMLVideoElement | null) => {
+    videoRef.current = el
+    if (el && streamRef.current) {
+      el.srcObject = streamRef.current
+      el.play().catch(e => console.error('Video play error:', e))
+    }
+  }, [])
 
   const [step, setStep] = useState<ClaimStep>('roll_number')
   const [rollNumber, setRollNumber] = useState('')
@@ -104,18 +113,26 @@ export default function ClaimPage() {
         throw new Error('Camera API not available (requires HTTPS)')
       }
       
-      let stream;
+      let stream: MediaStream
       try {
-        // Try rear camera first
+        // Try rear/environment camera first (mobile)
         stream = await navigator.mediaDevices.getUserMedia({
           video: { facingMode: { ideal: 'environment' } },
         })
-      } catch (err) {
-        // Fallback to any available camera (like desktop webcams)
+      } catch {
+        // Fallback to any available camera (desktop webcams, DroidCam, etc.)
         stream = await navigator.mediaDevices.getUserMedia({ video: true })
       }
       
       streamRef.current = stream
+
+      // If the video element is already mounted (ref callback already fired),
+      // attach the stream directly. Otherwise the ref callback will do it.
+      if (videoRef.current) {
+        videoRef.current.srcObject = stream
+        videoRef.current.play().catch(e => console.error('Video play error:', e))
+      }
+
       setStep('camera')
 
       // Start Laplacian sharpness polling
@@ -137,20 +154,10 @@ export default function ClaimPage() {
     } catch (err: any) {
       console.error('Camera error:', err)
       setStatusMessage(err.message || 'Camera permission denied or requires HTTPS. Please use the fallback below.')
-      setIsSharp(true) // Force true so fallback capture can trigger if needed
-      setStep('camera') // Must set step to camera to show the error and fallback UI!
+      setIsSharp(true)
+      setStep('camera')
     }
   }, [])
-
-  // Ensure video element plays when mounted
-  useEffect(() => {
-    if (step === 'camera' && videoRef.current && streamRef.current) {
-      if (videoRef.current.srcObject !== streamRef.current) {
-        videoRef.current.srcObject = streamRef.current
-        videoRef.current.play().catch(e => console.error('Play failed', e))
-      }
-    }
-  }, [step])
 
   // Stop camera
   const stopCamera = useCallback(() => {
@@ -158,6 +165,9 @@ export default function ClaimPage() {
     if (streamRef.current) {
       streamRef.current.getTracks().forEach((t) => t.stop())
       streamRef.current = null
+    }
+    if (videoRef.current) {
+      videoRef.current.srcObject = null
     }
   }, [])
 
@@ -409,7 +419,7 @@ export default function ClaimPage() {
               {/* Camera viewfinder */}
               <div className="relative w-full aspect-video rounded-2xl overflow-hidden mb-4"
                 style={{ border: `2px solid ${isSharp ? '#00FF66' : 'rgba(255,255,255,0.1)'}`, transition: 'border-color 0.3s' }}>
-                <video ref={videoRef} autoPlay playsInline muted className="w-full h-full object-cover" />
+                <video ref={videoCallbackRef} autoPlay playsInline muted className="w-full h-full object-cover" />
                 <canvas ref={canvasRef} className="hidden" />
 
                 {/* Corner frame overlay */}
