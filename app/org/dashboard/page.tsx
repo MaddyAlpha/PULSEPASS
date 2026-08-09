@@ -4,7 +4,8 @@ import { useState, useEffect } from 'react'
 import { motion } from 'framer-motion'
 import {
   BarChart3, Users, Ticket, TrendingUp, Plus, Settings, Edit3,
-  Eye, Calendar, CheckCircle2, Clock, Zap, Mail, Copy, Loader2, X
+  Eye, Calendar, CheckCircle2, Clock, Zap, Mail, Copy, Loader2, X,
+  Building2, Search, AlertTriangle
 } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 import type { Event, Organization, Profile } from '@/lib/types'
@@ -42,6 +43,17 @@ export default function OrgDashboardPage() {
   const [showInviteModal, setShowInviteModal] = useState(false)
   const [inviteEmail, setInviteEmail] = useState('')
   const [inviting, setInviting] = useState(false)
+
+  // University join request flow
+  const [universities, setUniversities] = useState<{ id: string; name: string; slug: string }[]>([])
+  const [colleges, setColleges] = useState<{ id: string; name: string }[]>([])
+  const [uniPickerStep, setUniPickerStep] = useState<1|2>(1)
+  const [selectedUni, setSelectedUni] = useState<{ id: string; name: string; slug: string } | null>(null)
+  const [selectedCollege, setSelectedCollege] = useState<{ id: string; name: string } | null>(null)
+  const [uniSearch, setUniSearch] = useState('')
+  const [collegeSearch, setCollegeSearch] = useState('')
+  const [joinRequest, setJoinRequest] = useState<{ status: string; reviewer_note?: string } | null>(null)
+  const [submittingRequest, setSubmittingRequest] = useState(false)
 
   // Event creation form
   const [eventForm, setEventForm] = useState({
@@ -106,10 +118,53 @@ export default function OrgDashboardPage() {
         checkin_rate: totalTickets > 0 ? Math.round((totalCheckins / totalTickets) * 100) : 0,
       })
 
+      // Fetch universities for joining
+      const { data: unis } = await supabase.from('universities').select('id, name, slug').eq('is_active', true).order('name')
+      setUniversities(unis || [])
+
+      // Fetch any existing join request
+      const { data: reqData } = await supabase
+        .from('org_join_requests')
+        .select('status, reviewer_note')
+        .eq('org_id', orgData.id)
+        .maybeSingle()
+      setJoinRequest(reqData || null)
+
       setLoading(false)
     }
     load()
   }, [])
+
+  const handleSelectUniversity = async (uni: { id: string; name: string; slug: string }) => {
+    setSelectedUni(uni)
+    setUniPickerStep(2)
+    setCollegeSearch('')
+    const { data: cols } = await supabase.from('colleges').select('id, name').eq('university_id', uni.id).order('name')
+    setColleges(cols || [])
+  }
+
+  const handleSubmitJoinRequest = async () => {
+    if (!org || !selectedUni) return
+    setSubmittingRequest(true)
+    try {
+      const { data: { user } } = await supabase.auth.getUser()
+      if (!user) throw new Error('Not logged in')
+      const { error } = await supabase.from('org_join_requests').upsert({
+        org_id: org.id,
+        university_id: selectedUni.id,
+        college_id: selectedCollege?.id || null,
+        requested_by: user.id,
+        status: 'pending',
+      }, { onConflict: 'org_id,university_id' })
+      if (error) throw error
+      setJoinRequest({ status: 'pending' })
+      toast.success('Request submitted! Waiting for university approval.')
+    } catch (err: any) {
+      toast.error(err.message || 'Failed to submit request')
+    } finally {
+      setSubmittingRequest(false)
+    }
+  }
 
   const handleCreateEvent = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -208,7 +263,7 @@ export default function OrgDashboardPage() {
           <Zap className="w-12 h-12 text-cyber-green mx-auto mb-4" />
           <h2 className="text-xl font-bold mb-2">No Organization Found</h2>
           <p className="text-white/50 mb-6">You need an org_admin account with an organization linked.</p>
-          <Link href="/auth?tab=signup&role=org" className="btn-cyber">Register Organization</Link>
+          <Link href="/org/setup" className="btn-cyber">Setup Organization</Link>
         </div>
       </div>
     )
@@ -271,6 +326,133 @@ export default function OrgDashboardPage() {
           {/* Overview Tab */}
           {tab === 'overview' && (
             <div className="space-y-8">
+              {/* University Join Request Banner */}
+              {!(org as any).university_id && (
+                <div className="rounded-2xl border border-amber-500/30 p-6"
+                  style={{ background: 'rgba(245,158,11,0.05)' }}>
+
+                  {/* Rejected state */}
+                  {joinRequest?.status === 'rejected' && (
+                    <div className="mb-5 p-4 rounded-xl border border-red-500/30" style={{ background: 'rgba(255,50,80,0.06)' }}>
+                      <p className="font-bold text-red-400 mb-1">Request Rejected</p>
+                      <p className="text-sm text-white/50">{joinRequest.reviewer_note || 'Your join request was rejected. You can submit a new one below.'}</p>
+                    </div>
+                  )}
+
+                  {/* Pending state */}
+                  {joinRequest?.status === 'pending' && (
+                    <div className="flex items-center gap-4">
+                      <div className="w-10 h-10 rounded-xl flex items-center justify-center shrink-0"
+                        style={{ background: 'rgba(167,139,250,0.12)', border: '1px solid rgba(167,139,250,0.3)' }}>
+                        <Loader2 className="w-5 h-5 text-purple-400 animate-spin" />
+                      </div>
+                      <div>
+                        <p className="font-bold text-purple-400">Awaiting University Approval</p>
+                        <p className="text-sm text-white/50 mt-0.5">Your request to join the university has been submitted. You'll be able to create events once approved.</p>
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Request form — shown if no pending request */}
+                  {(!joinRequest || joinRequest.status === 'rejected') && (
+                    <>
+                      <div className="flex items-start gap-4 mb-5">
+                        <div className="w-10 h-10 rounded-xl flex items-center justify-center shrink-0"
+                          style={{ background: 'rgba(245,158,11,0.12)', border: '1px solid rgba(245,158,11,0.3)' }}>
+                          <AlertTriangle className="w-5 h-5 text-amber-400" />
+                        </div>
+                        <div>
+                          <p className="font-bold text-amber-400">Join a University</p>
+                          <p className="text-sm text-white/50 mt-1">Search for your university and college below. Your request will be sent to the University Admin for approval.</p>
+                        </div>
+                      </div>
+
+                      {/* Step 1: Select University */}
+                      {uniPickerStep === 1 && (
+                        <>
+                          <div className="relative mb-3">
+                            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-white/30" />
+                            <input placeholder="Search universities..."
+                              value={uniSearch} onChange={e => setUniSearch(e.target.value)}
+                              className="w-full bg-white/5 border border-white/10 rounded-xl pl-10 pr-4 py-2.5 text-sm focus:outline-none focus:border-amber-500/50 transition-colors" />
+                          </div>
+                          <div className="space-y-2 max-h-48 overflow-y-auto">
+                            {universities.filter(u => u.name.toLowerCase().includes(uniSearch.toLowerCase())).map(uni => (
+                              <button key={uni.id} onClick={() => handleSelectUniversity(uni)}
+                                className="w-full text-left px-4 py-3 rounded-xl border border-white/10 bg-white/5 hover:bg-amber-500/10 hover:border-amber-500/30 transition-all flex items-center justify-between group">
+                                <div>
+                                  <p className="font-semibold text-sm">{uni.name}</p>
+                                  <p className="text-xs text-white/40">/u/{uni.slug}</p>
+                                </div>
+                                <Building2 className="w-4 h-4 text-white/20 group-hover:text-amber-400 transition-colors" />
+                              </button>
+                            ))}
+                            {universities.filter(u => u.name.toLowerCase().includes(uniSearch.toLowerCase())).length === 0 && (
+                              <p className="text-center text-white/30 text-sm py-4">No universities found.</p>
+                            )}
+                          </div>
+                        </>
+                      )}
+
+                      {/* Step 2: Select College + Submit */}
+                      {uniPickerStep === 2 && selectedUni && (
+                        <>
+                          <div className="flex items-center gap-2 mb-4">
+                            <button onClick={() => { setUniPickerStep(1); setSelectedUni(null); setSelectedCollege(null) }}
+                              className="text-xs text-white/40 hover:text-white transition-colors">← Back</button>
+                            <div className="flex items-center gap-2 px-3 py-1.5 rounded-lg text-sm"
+                              style={{ background: 'rgba(245,158,11,0.1)', border: '1px solid rgba(245,158,11,0.3)' }}>
+                              <Building2 className="w-3.5 h-3.5 text-amber-400" />
+                              <span className="text-amber-400 font-semibold">{selectedUni.name}</span>
+                            </div>
+                          </div>
+                          {colleges.length > 0 ? (
+                            <>
+                              <p className="text-xs text-white/40 uppercase tracking-wider mb-2">Select Your College <span className="text-red-400">*</span></p>
+                              <div className="relative mb-3">
+                                <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-white/30" />
+                                <input placeholder="Search colleges..."
+                                  value={collegeSearch} onChange={e => setCollegeSearch(e.target.value)}
+                                  className="w-full bg-white/5 border border-white/10 rounded-xl pl-10 pr-4 py-2.5 text-sm focus:outline-none focus:border-amber-500/50 transition-colors" />
+                              </div>
+                              <div className="space-y-2 max-h-36 overflow-y-auto mb-4">
+                                {colleges.filter(c => c.name.toLowerCase().includes(collegeSearch.toLowerCase())).map(col => (
+                                  <button key={col.id} onClick={() => setSelectedCollege(selectedCollege?.id === col.id ? null : col)}
+                                    className={`w-full text-left px-4 py-3 rounded-xl border transition-all text-sm font-medium flex items-center justify-between ${
+                                      selectedCollege?.id === col.id
+                                        ? 'border-amber-500/40 bg-amber-500/10 text-amber-400'
+                                        : 'border-white/10 bg-white/5 hover:bg-white/10'
+                                    }`}>
+                                    {col.name}
+                                    {selectedCollege?.id === col.id && <CheckCircle2 className="w-4 h-4" />}
+                                  </button>
+                                ))}
+                              </div>
+                            </>
+                          ) : (
+                            <p className="text-sm text-white/40 mb-4">No colleges added to this university yet. You can still submit your request.</p>
+                          )}
+                          <button onClick={handleSubmitJoinRequest} disabled={submittingRequest || (colleges.length > 0 && !selectedCollege)}
+                            className="w-full py-3 rounded-xl font-bold text-sm transition-all flex items-center justify-center gap-2 disabled:opacity-50"
+                            style={{ background: '#F59E0B', color: '#000' }}>
+                            {submittingRequest ? <Loader2 className="w-4 h-4 animate-spin" /> : <Building2 className="w-4 h-4" />}
+                            Submit Join Request
+                          </button>
+                        </>
+                      )}
+                    </>
+                  )}
+                </div>
+              )}
+
+              {/* Linked University Badge */}
+              {(org as any).university_id && (
+                <div className="flex items-center gap-3 px-5 py-3 rounded-xl border border-cyber-green/20 w-fit"
+                  style={{ background: 'rgba(0,255,102,0.05)' }}>
+                  <Building2 className="w-4 h-4 text-cyber-green" />
+                  <span className="text-sm text-cyber-green font-semibold">✓ Linked to University</span>
+                </div>
+              )}
               {/* Stat cards */}
               <div className="grid grid-cols-2 md:grid-cols-4 gap-5">
                 {[

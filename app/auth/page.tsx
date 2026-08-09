@@ -45,8 +45,7 @@ function AuthForm() {
 
       toast.success('Welcome back!')
       const redirect = searchParams.get('redirect') || '/events'
-      router.push(redirect)
-      router.refresh()
+      window.location.href = redirect
     } catch (err: unknown) {
       const message = err instanceof Error ? err.message : 'Sign in failed'
       toast.error(message)
@@ -102,8 +101,7 @@ function AuthForm() {
       if (data.session) {
         toast.success('Account created successfully!')
         const redirect = searchParams.get('redirect') || '/events'
-        router.push(redirect)
-        router.refresh()
+        window.location.href = redirect
       } else {
         toast.success('Account created successfully! Please sign in.')
         setTab('signin')
@@ -117,13 +115,13 @@ function AuthForm() {
   }
 
   return (
-    <div className="min-h-screen bg-obsidian-900 cyber-grid flex items-center justify-center p-4"
+    <div className="min-h-[100dvh] bg-obsidian-900 cyber-grid flex flex-col p-4 py-8 overflow-y-auto"
       style={{ backgroundSize: '40px 40px' }}>
       {/* Background glow */}
-      <div className="absolute inset-0 pointer-events-none"
+      <div className="fixed inset-0 pointer-events-none z-0"
         style={{ background: 'radial-gradient(ellipse 60% 60% at 50% 30%, rgba(0,255,102,0.07) 0%, transparent 70%)' }} />
 
-      <div className="relative w-full max-w-md">
+      <div className="relative z-10 w-full max-w-md mx-auto my-auto">
         {/* Logo */}
         <div className="flex justify-center mb-8">
           <Link href="/" className="flex items-center gap-2.5 group">
@@ -139,8 +137,8 @@ function AuthForm() {
 
         {/* Card */}
         <motion.div
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
+          initial={{ y: 20 }}
+          animate={{ y: 0 }}
           transition={{ duration: 0.5 }}
           className="glass-card p-8">
 
@@ -167,8 +165,8 @@ function AuthForm() {
             {tab === 'signin' ? (
               <motion.form
                 key="signin"
-                initial={{ opacity: 0, x: -10 }}
-                animate={{ opacity: 1, x: 0 }}
+                initial={{ x: -10 }}
+                animate={{ x: 0 }}
                 exit={{ opacity: 0, x: 10 }}
                 transition={{ duration: 0.2 }}
                 onSubmit={handleSignIn}
@@ -176,7 +174,7 @@ function AuthForm() {
                 <div className="space-y-1.5">
                   <label className="text-xs text-white/50 font-medium uppercase tracking-wider">Email</label>
                   <div className="relative">
-                    <Mail className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-white/30" />
+                    <Mail className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-white/30 pointer-events-none" />
                     <input
                       type="email"
                       required
@@ -191,7 +189,7 @@ function AuthForm() {
                 <div className="space-y-1.5">
                   <label className="text-xs text-white/50 font-medium uppercase tracking-wider">Password</label>
                   <div className="relative">
-                    <Lock className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-white/30" />
+                    <Lock className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-white/30 pointer-events-none" />
                     <input
                       type={showPassword ? 'text' : 'password'}
                       required
@@ -223,8 +221,8 @@ function AuthForm() {
             ) : (
               <motion.form
                 key="signup"
-                initial={{ opacity: 0, x: 10 }}
-                animate={{ opacity: 1, x: 0 }}
+                initial={{ x: 10 }}
+                animate={{ x: 0 }}
                 exit={{ opacity: 0, x: -10 }}
                 transition={{ duration: 0.2 }}
                 onSubmit={handleSignUp}
@@ -265,7 +263,7 @@ function AuthForm() {
                 <div className="space-y-1.5">
                   <label className="text-xs text-white/50 font-medium uppercase tracking-wider">Full Name</label>
                   <div className="relative">
-                    <User className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-white/30" />
+                    <User className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-white/30 pointer-events-none" />
                     <input
                       type="text"
                       required
@@ -282,7 +280,7 @@ function AuthForm() {
                     University Email
                   </label>
                   <div className="relative">
-                    <Mail className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-white/30" />
+                    <Mail className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-white/30 pointer-events-none" />
                     <input
                       type="email"
                       required
@@ -297,7 +295,7 @@ function AuthForm() {
                 <div className="space-y-1.5">
                   <label className="text-xs text-white/50 font-medium uppercase tracking-wider">Password</label>
                   <div className="relative">
-                    <Lock className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-white/30" />
+                    <Lock className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-white/30 pointer-events-none" />
                     <input
                       type={showPassword ? 'text' : 'password'}
                       required
@@ -328,7 +326,7 @@ function AuthForm() {
                           Organization / Club Name
                         </label>
                         <div className="relative">
-                          <Building2 className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-white/30" />
+                          <Building2 className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-white/30 pointer-events-none" />
                           <input
                             type="text"
                             required={role === 'org_admin'}

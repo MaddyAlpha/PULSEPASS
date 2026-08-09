@@ -58,50 +58,13 @@ export default function EventDetailPage() {
     load()
   }, [eventId])
 
-  const handleClaimPass = async () => {
+  const handleClaimPassClick = () => {
     if (!user) {
       router.push(`/auth?redirect=/events/${eventId}`)
       return
     }
-    if (event?.roll_number_pattern) {
-      const regex = new RegExp(event.roll_number_pattern)
-      if (!regex.test(rollNumberInput)) {
-        toast.error(`Roll Number must match format: ${event.roll_number_pattern}`)
-        return
-      }
-    }
-
-    setClaiming(true)
-    try {
-      if (event?.roll_number_pattern && profile?.university_id !== rollNumberInput) {
-        await supabase.from('profiles').update({ university_id: rollNumberInput }).eq('id', user.id)
-      }
-
-      const res = await fetch('/api/tickets', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ event_id: eventId, ticket_type: selectedType }),
-      })
-      const result = await res.json()
-
-      if (!res.ok) throw new Error(result.error || 'Failed to claim pass')
-
-      setUserTicket(result.ticket)
-      toast.success('🎫 Pass claimed successfully!')
-
-      // Refresh event data
-      const { data: updated } = await supabase
-        .from('events')
-        .select('*, organization:organizations(id,name,logo_url,department)')
-        .eq('id', eventId)
-        .single()
-      setEvent(updated)
-    } catch (err: unknown) {
-      const message = err instanceof Error ? err.message : 'Failed to claim pass'
-      toast.error(message)
-    } finally {
-      setClaiming(false)
-    }
+    // Route to OCR Claim screen
+    router.push(`/events/${eventId}/claim?type=${selectedType}`)
   }
 
   if (loading) {
@@ -343,8 +306,7 @@ export default function EventDetailPage() {
                       </div>
                     ) : (
                       <button
-                        onClick={handleClaimPass}
-                        disabled={claiming || (!!event.roll_number_pattern && !rollNumberInput.trim())}
+                        onClick={handleClaimPassClick}
                         className="btn-cyber w-full justify-center py-3.5">
                         {claiming ? (
                           <Loader2 className="w-4 h-4 animate-spin" />
