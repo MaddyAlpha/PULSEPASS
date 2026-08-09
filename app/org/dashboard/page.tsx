@@ -5,7 +5,7 @@ import { motion } from 'framer-motion'
 import {
   BarChart3, Users, Ticket, TrendingUp, Plus, Settings, Edit3,
   Eye, Calendar, CheckCircle2, Clock, Zap, Mail, Copy, Loader2, X,
-  Building2, Search, AlertTriangle
+  Building2, Search, AlertTriangle, Shield, Scan, UserCheck, ChevronDown, Trash2, UserPlus
 } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 import type { Event, Organization, Profile } from '@/lib/types'
@@ -43,6 +43,14 @@ export default function OrgDashboardPage() {
   const [showInviteModal, setShowInviteModal] = useState(false)
   const [inviteEmail, setInviteEmail] = useState('')
   const [inviting, setInviting] = useState(false)
+
+  // Role manager state
+  const [roleSearch, setRoleSearch] = useState('')
+  const [roleSearchResult, setRoleSearchResult] = useState<any>(null)
+  const [roleSearching, setRoleSearching] = useState(false)
+  const [roleAssigning, setRoleAssigning] = useState(false)
+  const [selectedRole, setSelectedRole] = useState<string>('supervisor')
+  const [teamMembers, setTeamMembers] = useState<any[]>([])
 
   // University join request flow
   const [universities, setUniversities] = useState<{ id: string; name: string; slug: string }[]>([])
@@ -106,6 +114,14 @@ export default function OrgDashboardPage() {
         .select('*, profile:profiles(full_name, email, role)')
         .eq('org_id', orgData.id)
       setSupervisors(supsData || [])
+
+      // Fetch team members (all non-student roles) for role manager
+      const { data: teamData } = await supabase
+        .from('profiles')
+        .select('id, full_name, email, role, avatar_url')
+        .in('role', ['supervisor', 'committee_admin', 'org_admin', 'college_admin', 'university_admin'])
+        .order('full_name')
+      setTeamMembers(teamData || [])
 
       // Compute stats
       const totalTickets = eventsWithStats.reduce((a, e) => a + e.ticket_count, 0)
@@ -269,10 +285,77 @@ export default function OrgDashboardPage() {
     )
   }
 
+  const handleSearchRole = async () => {
+    if (!roleSearch.trim()) return
+    setRoleSearching(true)
+    setRoleSearchResult(null)
+    try {
+      const { data } = await supabase
+        .from('profiles')
+        .select('id, full_name, email, role, avatar_url')
+        .ilike('email', roleSearch.trim())
+        .maybeSingle()
+      setRoleSearchResult(data || 'not_found')
+    } catch {
+      setRoleSearchResult('not_found')
+    } finally {
+      setRoleSearching(false)
+    }
+  }
+
+  const handleAssignRole = async (userId: string, newRole: string) => {
+    setRoleAssigning(true)
+    try {
+      const { error } = await supabase
+        .from('profiles')
+        .update({ role: newRole })
+        .eq('id', userId)
+      if (error) throw error
+
+      // Also add to org_members_supervisors if not already there
+      if (['supervisor', 'committee_admin'].includes(newRole) && org) {
+        await supabase.from('org_members_supervisors').upsert({
+          org_id: org.id,
+          user_id: userId,
+          member_role: newRole,
+          invited_by: profile?.id,
+          invite_email: roleSearchResult?.email,
+          event_scopes: [],
+          accepted: true,
+        }, { onConflict: 'org_id,user_id' })
+      }
+
+      toast.success(`Role assigned: ${ROLE_OPTIONS.find(r => r.value === newRole)?.label}`)
+      setRoleSearchResult((prev: any) => ({ ...prev, role: newRole }))
+      // Refresh team list
+      const { data: teamData } = await supabase
+        .from('profiles')
+        .select('id, full_name, email, role, avatar_url')
+        .in('role', ['supervisor', 'committee_admin', 'org_admin', 'college_admin', 'university_admin'])
+        .order('full_name')
+      setTeamMembers(teamData || [])
+    } catch (err: any) {
+      toast.error(err.message || 'Failed to assign role')
+    } finally {
+      setRoleAssigning(false)
+    }
+  }
+
+  const handleRemoveRole = async (userId: string) => {
+    if (!confirm('Remove this person\'s role? They will become a regular student.')) return
+    try {
+      await supabase.from('profiles').update({ role: 'student' }).eq('id', userId)
+      toast.success('Role removed')
+      setTeamMembers(prev => prev.filter(m => m.id !== userId))
+    } catch (err: any) {
+      toast.error(err.message)
+    }
+  }
+
   const TABS = [
     { id: 'overview' as TabId, label: 'Overview', icon: BarChart3 },
     { id: 'events' as TabId, label: 'Events', icon: Calendar },
-    { id: 'supervisors' as TabId, label: 'Supervisors', icon: Users },
+    { id: 'roles' as TabId, label: 'Role Manager', icon: Users },
   ]
 
   return (
@@ -585,56 +668,166 @@ export default function OrgDashboardPage() {
             </div>
           )}
 
-          {/* Supervisors Tab */}
-          {tab === 'supervisors' && (
-            <div>
-              <div className="flex items-center justify-between mb-6">
-                <h2 className="font-bold text-xl">Event Supervisors</h2>
-                <button onClick={() => setShowInviteModal(true)} className="btn-cyber">
-                  <Mail className="w-4 h-4" /> Invite Supervisor
-                </button>
-              </div>
-
-              {/* Org invite code */}
-              <div className="glass-card p-5 mb-6 flex items-center justify-between">
-                <div>
-                  <p className="text-xs text-white/40 uppercase tracking-wider mb-1">Org Verification Code</p>
-                  <p className="font-mono text-lg font-bold text-cyber-green tracking-widest">
-                    {org.verification_code?.toUpperCase()}
-                  </p>
-                </div>
-                <button
-                  onClick={() => { navigator.clipboard.writeText(org.verification_code || ''); toast.success('Copied!') }}
-                  className="btn-ghost">
-                  <Copy className="w-4 h-4" /> Copy
-                </button>
-              </div>
-
-              <div className="space-y-3">
-                {supervisors.map(s => (
-                  <div key={s.id} className="glass-card p-4 flex items-center justify-between">
-                    <div className="flex items-center gap-3">
-                      <div className="w-10 h-10 rounded-full flex items-center justify-center text-sm font-bold"
-                        style={{ background: 'rgba(0,255,102,0.1)', color: '#00FF66' }}>
-                        {s.profile?.full_name?.[0]?.toUpperCase() || '?'}
-                      </div>
-                      <div>
-                        <p className="font-semibold text-sm">{s.profile?.full_name || 'Unknown'}</p>
-                        <p className="text-xs text-white/40">{s.invite_email || s.profile?.email}</p>
-                      </div>
+          {/* Role Manager Tab */}
+          {tab === 'roles' && (
+            <div className="space-y-8">
+              {/* Role Legend */}
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                {ROLE_OPTIONS.map(r => (
+                  <div key={r.value} className="rounded-2xl p-4 flex items-start gap-4"
+                    style={{ background: r.bg, border: `1px solid ${r.border}` }}>
+                    <div className="w-10 h-10 rounded-xl flex items-center justify-center shrink-0"
+                      style={{ background: r.bg, border: `1px solid ${r.border}` }}>
+                      <r.icon className="w-5 h-5" style={{ color: r.color }} />
                     </div>
-                    <div className="flex items-center gap-3">
-                      <span className="badge-valid capitalize">{s.member_role}</span>
-                      <Link href={`/scanner/${events[0]?.id || ''}`} className="btn-ghost text-xs py-1.5">
-                        Scanner Link
-                      </Link>
+                    <div>
+                      <p className="font-bold text-sm" style={{ color: r.color }}>{r.label}</p>
+                      <p className="text-xs text-white/50 mt-0.5">{r.desc}</p>
                     </div>
                   </div>
                 ))}
-                {supervisors.length === 0 && (
-                  <div className="text-center py-16">
-                    <Users className="w-10 h-10 text-white/15 mx-auto mb-3" />
-                    <p className="text-white/40">No supervisors yet</p>
+              </div>
+
+              {/* Search & Assign */}
+              <div className="glass-card p-6">
+                <div className="flex items-center gap-3 mb-1">
+                  <UserPlus className="w-5 h-5 text-cyber-green" />
+                  <h2 className="font-bold text-lg">Assign a Role</h2>
+                </div>
+                <p className="text-sm text-white/40 mb-5">The person must already have a PulsePass account. Search by their email address.</p>
+
+                <div className="flex gap-3 mb-5">
+                  <div className="relative flex-1">
+                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-white/30" />
+                    <input
+                      type="email"
+                      placeholder="volunteer@college.edu"
+                      value={roleSearch}
+                      onChange={e => setRoleSearch(e.target.value)}
+                      onKeyDown={e => e.key === 'Enter' && handleSearchRole()}
+                      className="input-cyber w-full pl-10"
+                    />
+                  </div>
+                  <button onClick={handleSearchRole} disabled={roleSearching} className="btn-cyber shrink-0">
+                    {roleSearching ? <Loader2 className="w-4 h-4 animate-spin" /> : <Search className="w-4 h-4" />}
+                    Search
+                  </button>
+                </div>
+
+                {/* Search result */}
+                {roleSearchResult === 'not_found' && (
+                  <div className="p-4 rounded-xl border border-red-500/20 text-red-400/80 text-sm"
+                    style={{ background: 'rgba(255,50,80,0.05)' }}>
+                    No user found with that email. Ask them to sign up at PulsePass first.
+                  </div>
+                )}
+
+                {roleSearchResult && roleSearchResult !== 'not_found' && (
+                  <div className="p-5 rounded-2xl border border-white/10" style={{ background: 'rgba(255,255,255,0.03)' }}>
+                    <div className="flex items-center gap-4 mb-5">
+                      <div className="w-12 h-12 rounded-2xl flex items-center justify-center text-lg font-black"
+                        style={{ background: 'rgba(0,255,102,0.1)', color: '#00FF66' }}>
+                        {roleSearchResult.full_name?.[0]?.toUpperCase() || '?'}
+                      </div>
+                      <div>
+                        <p className="font-bold">{roleSearchResult.full_name || 'Unknown'}</p>
+                        <p className="text-white/40 text-sm">{roleSearchResult.email}</p>
+                        <p className="text-xs mt-1">
+                          Current role: <span className="text-cyber-green font-semibold">{roleSearchResult.role || 'student'}</span>
+                        </p>
+                      </div>
+                    </div>
+
+                    {/* Role selector */}
+                    <p className="text-xs text-white/40 uppercase tracking-wider mb-3">Assign Role</p>
+                    <div className="grid grid-cols-1 gap-2 mb-4">
+                      {ROLE_OPTIONS.map(r => (
+                        <button key={r.value}
+                          onClick={() => setSelectedRole(r.value)}
+                          className="flex items-center gap-3 px-4 py-3 rounded-xl border transition-all text-left"
+                          style={selectedRole === r.value ? {
+                            background: r.bg, borderColor: r.border,
+                          } : {
+                            background: 'rgba(255,255,255,0.02)', borderColor: 'rgba(255,255,255,0.08)',
+                          }}>
+                          <r.icon className="w-4 h-4 shrink-0" style={{ color: selectedRole === r.value ? r.color : 'rgba(255,255,255,0.3)' }} />
+                          <div>
+                            <p className="text-sm font-semibold" style={{ color: selectedRole === r.value ? r.color : 'rgba(255,255,255,0.7)' }}>{r.label}</p>
+                            <p className="text-xs text-white/30">{r.desc}</p>
+                          </div>
+                          {selectedRole === r.value && <CheckCircle2 className="w-4 h-4 ml-auto" style={{ color: r.color }} />}
+                        </button>
+                      ))}
+                    </div>
+
+                    <button
+                      onClick={() => handleAssignRole(roleSearchResult.id, selectedRole)}
+                      disabled={roleAssigning}
+                      className="w-full py-3 rounded-xl font-bold text-black text-sm flex items-center justify-center gap-2 transition-all"
+                      style={{ background: '#00FF66' }}>
+                      {roleAssigning ? <Loader2 className="w-4 h-4 animate-spin" /> : <UserCheck className="w-4 h-4" />}
+                      Assign Role
+                    </button>
+                  </div>
+                )}
+              </div>
+
+              {/* Current Team */}
+              <div className="glass-card">
+                <div className="px-6 py-4 border-b border-white/[0.06]">
+                  <h2 className="font-bold">Current Team ({teamMembers.length})</h2>
+                  <p className="text-xs text-white/40 mt-0.5">All users with gate or admin access</p>
+                </div>
+                {teamMembers.length === 0 ? (
+                  <div className="py-16 text-center">
+                    <Users className="w-10 h-10 text-white/10 mx-auto mb-3" />
+                    <p className="text-white/30">No team members yet. Search above to assign roles.</p>
+                  </div>
+                ) : (
+                  <div className="divide-y divide-white/[0.04]">
+                    {teamMembers.map(member => {
+                      const roleInfo = ROLE_OPTIONS.find(r => r.value === member.role)
+                      return (
+                        <div key={member.id} className="px-6 py-4 flex items-center justify-between gap-4">
+                          <div className="flex items-center gap-3">
+                            <div className="w-10 h-10 rounded-xl flex items-center justify-center font-bold text-sm shrink-0"
+                              style={{ background: roleInfo?.bg || 'rgba(255,255,255,0.05)', color: roleInfo?.color || 'rgba(255,255,255,0.5)' }}>
+                              {member.full_name?.[0]?.toUpperCase() || '?'}
+                            </div>
+                            <div>
+                              <p className="font-semibold text-sm">{member.full_name || 'Unknown'}</p>
+                              <p className="text-xs text-white/40">{member.email}</p>
+                            </div>
+                          </div>
+                          <div className="flex items-center gap-3 shrink-0">
+                            <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-semibold"
+                              style={{ background: roleInfo?.bg || 'rgba(255,255,255,0.05)', color: roleInfo?.color || 'rgba(255,255,255,0.5)', border: `1px solid ${roleInfo?.border || 'rgba(255,255,255,0.1)'}` }}>
+                              {roleInfo && <roleInfo.icon className="w-3 h-3" />}
+                              {roleInfo?.label || member.role}
+                            </div>
+                            {/* Quick links based on role */}
+                            {(member.role === 'supervisor') && events[0] && (
+                              <a href={`/scanner/${events[0].id}`} target="_blank"
+                                className="text-xs px-3 py-1.5 rounded-xl font-semibold transition-all"
+                                style={{ background: 'rgba(0,255,102,0.08)', color: '#00FF66', border: '1px solid rgba(0,255,102,0.2)' }}>
+                                Scanner Link ↗
+                              </a>
+                            )}
+                            {(member.role === 'committee_admin') && events[0] && (
+                              <a href={`/verifier/${events[0].id}`} target="_blank"
+                                className="text-xs px-3 py-1.5 rounded-xl font-semibold transition-all"
+                                style={{ background: 'rgba(167,139,250,0.08)', color: '#A78BFA', border: '1px solid rgba(167,139,250,0.2)' }}>
+                                Verifier Link ↗
+                              </a>
+                            )}
+                            <button onClick={() => handleRemoveRole(member.id)}
+                              className="p-2 rounded-xl text-white/20 hover:text-red-400 hover:bg-red-500/10 transition-all">
+                              <Trash2 className="w-4 h-4" />
+                            </button>
+                          </div>
+                        </div>
+                      )
+                    })}
                   </div>
                 )}
               </div>
