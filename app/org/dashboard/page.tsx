@@ -347,16 +347,23 @@ export default function OrgDashboardPage() {
       if (error) throw error
 
       // Also add to org_members_supervisors if not already there
-      if (['supervisor', 'committee_admin'].includes(newRole) && org) {
-        await supabase.from('org_members_supervisors').upsert({
+      if (['supervisor', 'committee_admin', 'org_admin'].includes(newRole) && org) {
+        let orgMemberRole = 'supervisor'
+        if (newRole === 'committee_admin' || newRole === 'org_admin') {
+          orgMemberRole = 'admin'
+        }
+
+        const { error: orgError } = await supabase.from('org_members_supervisors').upsert({
           org_id: org.id,
           user_id: userId,
-          member_role: newRole,
+          member_role: orgMemberRole,
           invited_by: profile?.id,
           invite_email: roleSearchResult?.email,
           event_scopes: [],
           accepted: true,
         }, { onConflict: 'org_id,user_id' })
+        
+        if (orgError) throw orgError
       }
 
       toast.success(`Role assigned: ${ROLE_OPTIONS.find(r => r.value === newRole)?.label}`)
