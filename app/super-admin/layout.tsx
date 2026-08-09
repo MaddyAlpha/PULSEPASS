@@ -1,3 +1,4 @@
+export const runtime = 'edge';
 import { redirect } from 'next/navigation'
 import { createClient } from '@/lib/supabase/server'
 
@@ -29,3 +30,4 @@ export default async function SuperAdminLayout({
     </div>
   )
 }
+
