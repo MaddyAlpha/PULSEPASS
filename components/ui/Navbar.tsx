@@ -3,7 +3,7 @@
 import { useState, useEffect } from 'react'
 import Link from 'next/link'
 import { usePathname, useRouter } from 'next/navigation'
-import { Zap, LayoutDashboard, Ticket, Calendar, Scan, LogOut, Menu, X, User, Shield, GraduationCap } from 'lucide-react'
+import { Zap, LayoutDashboard, Ticket, Calendar, Scan, LogOut, Menu, X, User, Shield, GraduationCap, UserCheck } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 import type { Profile } from '@/lib/types'
 
