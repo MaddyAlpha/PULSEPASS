@@ -14,15 +14,18 @@
     "@supabase/supabase-js": "^2.45.4",
     "framer-motion": "^11.3.19",
     "html5-qrcode": "^2.3.8",
+    "jose": "^6.2.8",
     "jspdf": "^2.5.1",
     "lucide-react": "^0.468.0",
     "next": "^16.2.11",
     "qrcode.react": "^4.1.0",
     "react": "^18",
     "react-dom": "^18",
-    "react-hot-toast": "^2.4.1"
+    "react-hot-toast": "^2.4.1",
+    "tesseract.js": "^7.0.0"
   },
   "devDependencies": {
+    "@cloudflare/next-on-pages": "^1.13.16",
     "@types/node": "^20",
     "@types/react": "^18",
     "@types/react-dom": "^18",
@@ -31,6 +34,7 @@
     "eslint-config-next": "14.2.5",
     "postcss": "^8",
     "tailwindcss": "^3.4.1",
-    "typescript": "^5"
+    "typescript": "^5",
+    "wrangler": "^4.120.0"
   }
 }
