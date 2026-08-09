@@ -26,7 +26,7 @@ import Link from 'next/link'
 
 type ClaimStep = 'roll_number' | 'camera' | 'scanning_ocr' | 'success' | 'failed' | 'manual_review' | 'reviewing'
 
-const SHARPNESS_THRESHOLD = 120  // Laplacian variance threshold
+const SHARPNESS_THRESHOLD = 15  // Laplacian variance threshold (realistic for webcams/DroidCam)
 const LAPLACIAN_INTERVAL_MS = 200
 const MAX_OCR_RETRIES = 3
 
@@ -482,9 +482,8 @@ export default function ClaimPage() {
               ) : (
                 <button
                   onClick={() => handleCapture()}
-                  disabled={!isSharp}
-                  className="w-full flex items-center justify-center gap-2 py-4 rounded-2xl font-bold text-black transition-all disabled:opacity-30 disabled:cursor-not-allowed"
-                  style={{ background: isSharp ? '#00FF66' : '#00FF6640' }}>
+                  className="w-full flex items-center justify-center gap-2 py-4 rounded-2xl font-bold text-black transition-all"
+                  style={{ background: '#00FF66' }}>
                   <Aperture className="w-5 h-5" />
                   Capture & Scan ID Card
                 </button>
