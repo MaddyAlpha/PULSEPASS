@@ -14,7 +14,37 @@ import { useRouter } from 'next/navigation'
 import toast from 'react-hot-toast'
 import Navbar from '@/components/ui/Navbar'
 
-type TabId = 'overview' | 'events' | 'supervisors' | 'create'
+type TabId = 'overview' | 'events' | 'roles' | 'create'
+
+const ROLE_OPTIONS = [
+  {
+    value: 'supervisor',
+    label: 'Station 2 — Scanner',
+    desc: 'Scans QR codes at the gate',
+    icon: Scan,
+    color: '#00FF66',
+    bg: 'rgba(0,255,102,0.1)',
+    border: 'rgba(0,255,102,0.25)',
+  },
+  {
+    value: 'committee_admin',
+    label: 'Station 3 — Verifier',
+    desc: 'Admits or rejects scanned tickets',
+    icon: UserCheck,
+    color: '#A78BFA',
+    bg: 'rgba(167,139,250,0.1)',
+    border: 'rgba(167,139,250,0.25)',
+  },
+  {
+    value: 'org_admin',
+    label: 'Organiser Admin',
+    desc: 'Full dashboard + all stations',
+    icon: Shield,
+    color: '#F59E0B',
+    bg: 'rgba(245,158,11,0.1)',
+    border: 'rgba(245,158,11,0.25)',
+  },
+]
 
 interface OrgStats {
   total_events: number
