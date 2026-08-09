@@ -82,9 +82,16 @@ export default function Navbar() {
           {profile ? (
             <div className="flex items-center gap-3">
               {profile.role === 'supervisor' && (
-                <Link href="/scanner" className="btn-cyber text-sm py-2">
+                <Link href="/scanner" className="btn-cyber text-sm py-2 px-3">
                   <Scan className="w-4 h-4" />
                   Scanner
+                </Link>
+              )}
+              {profile.role === 'committee_admin' && (
+                <Link href="/verifier" className="text-sm py-2 px-3 rounded-xl font-semibold flex items-center gap-2 transition-all"
+                  style={{ background: '#A78BFA', color: '#000' }}>
+                  <UserCheck className="w-4 h-4" />
+                  Verifier
                 </Link>
               )}
               <Link href="/profile" className="flex items-center gap-2 px-3 py-2 rounded-xl hover:bg-white/5 transition-colors cursor-pointer"

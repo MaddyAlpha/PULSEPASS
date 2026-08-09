@@ -145,12 +145,16 @@ export default function OrgDashboardPage() {
         .eq('org_id', orgData.id)
       setSupervisors(supsData || [])
 
-      // Fetch team members (all non-student roles) for role manager
+      // Fetch team members (owner + invited members) for role manager
+      const memberUserIds = supsData?.map(s => s.user_id).filter(Boolean) || []
+      const teamUserIds = Array.from(new Set([orgData.owner_id, ...memberUserIds]))
+
       const { data: teamData } = await supabase
         .from('profiles')
         .select('id, full_name, email, role, avatar_url')
-        .in('role', ['supervisor', 'committee_admin', 'org_admin', 'college_admin', 'university_admin'])
+        .in('id', teamUserIds)
         .order('full_name')
+      
       setTeamMembers(teamData || [])
 
       // Compute stats
@@ -357,13 +361,15 @@ export default function OrgDashboardPage() {
 
       toast.success(`Role assigned: ${ROLE_OPTIONS.find(r => r.value === newRole)?.label}`)
       setRoleSearchResult((prev: any) => ({ ...prev, role: newRole }))
-      // Refresh team list
-      const { data: teamData } = await supabase
-        .from('profiles')
-        .select('id, full_name, email, role, avatar_url')
-        .in('role', ['supervisor', 'committee_admin', 'org_admin', 'college_admin', 'university_admin'])
-        .order('full_name')
-      setTeamMembers(teamData || [])
+      // Refresh team list locally to avoid complex re-query
+      setTeamMembers(prev => {
+        const exists = prev.find(p => p.id === userId)
+        if (exists) {
+          return prev.map(p => p.id === userId ? { ...p, role: newRole } : p)
+        } else {
+          return [...prev, { ...roleSearchResult, role: newRole }].sort((a, b) => a.full_name?.localeCompare(b.full_name || '') || 0)
+        }
+      })
     } catch (err: any) {
       toast.error(err.message || 'Failed to assign role')
     } finally {
@@ -375,6 +381,9 @@ export default function OrgDashboardPage() {
     if (!confirm('Remove this person\'s role? They will become a regular student.')) return
     try {
       await supabase.from('profiles').update({ role: 'student' }).eq('id', userId)
+      if (org) {
+        await supabase.from('org_members_supervisors').delete().eq('user_id', userId).eq('org_id', org.id)
+      }
       toast.success('Role removed')
       setTeamMembers(prev => prev.filter(m => m.id !== userId))
     } catch (err: any) {
