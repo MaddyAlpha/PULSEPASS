@@ -157,12 +157,26 @@ export default function GatekeeperScannerPage() {
       const { Html5Qrcode } = await import('html5-qrcode')
       const scanner = new Html5Qrcode('qr-scanner-container')
       html5QrRef.current = scanner
-      await scanner.start(
-        { facingMode: 'environment' },
-        { fps: 10, qrbox: { width: 280, height: 280 }, aspectRatio: 1.0 },
-        (decodedText: string) => { processQrScan(decodedText) },
-        () => {}
-      )
+      
+      try {
+        await scanner.start(
+          { facingMode: 'environment' },
+          { fps: 10, qrbox: { width: 280, height: 280 }, aspectRatio: 1.0 },
+          (decodedText: string) => { processQrScan(decodedText) },
+          () => {}
+        )
+      } catch (err) {
+        // Fallback for desktops without an environment camera
+        const devices = await Html5Qrcode.getCameras()
+        if (devices && devices.length > 0) {
+          await scanner.start(
+            devices[0].id,
+            { fps: 10, qrbox: { width: 280, height: 280 }, aspectRatio: 1.0 },
+            (decodedText: string) => { processQrScan(decodedText) },
+            () => {}
+          )
+        }
+      }
       setCameraStarted(true)
       setScanState('scanning')
     } catch {

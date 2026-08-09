@@ -103,23 +103,20 @@ export default function ClaimPage() {
       if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
         throw new Error('Camera API not available (requires HTTPS)')
       }
-      const stream = await navigator.mediaDevices.getUserMedia({
-        video: {
-          facingMode: { ideal: 'environment' },
-          width: { ideal: 1280 },
-          height: { ideal: 720 },
-        },
-      })
+      
+      let stream;
+      try {
+        // Try rear camera first
+        stream = await navigator.mediaDevices.getUserMedia({
+          video: { facingMode: { ideal: 'environment' } },
+        })
+      } catch (err) {
+        // Fallback to any available camera (like desktop webcams)
+        stream = await navigator.mediaDevices.getUserMedia({ video: true })
+      }
+      
       streamRef.current = stream
       setStep('camera')
-      
-      // Wait for React to mount the video element before attaching the stream
-      setTimeout(() => {
-        if (videoRef.current) {
-          videoRef.current.srcObject = stream
-          videoRef.current.play().catch(e => console.error('Play failed', e))
-        }
-      }, 50)
 
       // Start Laplacian sharpness polling
       sharpnessIntervalRef.current = setInterval(() => {
@@ -144,6 +141,16 @@ export default function ClaimPage() {
       setStep('camera') // Must set step to camera to show the error and fallback UI!
     }
   }, [])
+
+  // Ensure video element plays when mounted
+  useEffect(() => {
+    if (step === 'camera' && videoRef.current && streamRef.current) {
+      if (videoRef.current.srcObject !== streamRef.current) {
+        videoRef.current.srcObject = streamRef.current
+        videoRef.current.play().catch(e => console.error('Play failed', e))
+      }
+    }
+  }, [step])
 
   // Stop camera
   const stopCamera = useCallback(() => {
