@@ -3,14 +3,17 @@
 import { useState, useEffect } from 'react'
 import Link from 'next/link'
 import { usePathname, useRouter } from 'next/navigation'
-import { Zap, LayoutDashboard, Ticket, Calendar, Scan, LogOut, Menu, X, User } from 'lucide-react'
+import { Zap, LayoutDashboard, Ticket, Calendar, Scan, LogOut, Menu, X, User, Shield, GraduationCap } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 import type { Profile } from '@/lib/types'
 
 const NAV_LINKS = [
   { href: '/events', label: 'Events', icon: Calendar, roles: ['all'] },
   { href: '/my-passes', label: 'My Passes', icon: Ticket, roles: ['student', 'supervisor'] },
-  { href: '/org/dashboard', label: 'Dashboard', icon: LayoutDashboard, roles: ['org_admin', 'super_admin'] },
+  { href: '/org/dashboard', label: 'Org Dashboard', icon: LayoutDashboard, roles: ['org_admin', 'super_admin'] },
+  { href: '/college-admin', label: 'College Portal', icon: GraduationCap, roles: ['college_admin', 'super_admin'] },
+  { href: '/university-admin', label: 'University Portal', icon: GraduationCap, roles: ['university_admin', 'super_admin'] },
+  { href: '/super-admin', label: 'Super Admin', icon: Shield, roles: ['super_admin'] },
 ]
 
 export default function Navbar() {

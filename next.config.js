@@ -8,9 +8,10 @@ const nextConfig = {
   },
   experimental: {
     serverActions: {
-      allowedOrigins: ['localhost:3000'],
+      allowedOrigins: ['localhost:3000', 'localhost:4000', 'a2ff509905e047.lhr.life'],
     },
   },
+  allowedDevOrigins: ['a2ff509905e047.lhr.life', 'localhost', '192.168.43.95'],
 }
 
 module.exports = nextConfig

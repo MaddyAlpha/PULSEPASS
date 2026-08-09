@@ -16,6 +16,7 @@ export default function TicketPass({ data }: TicketPassProps) {
 
   const statusColor = {
     valid: { text: '#00FF66', bg: 'rgba(0,255,102,0.12)', border: 'rgba(0,255,102,0.25)' },
+    pending_verification: { text: '#A78BFA', bg: 'rgba(167,139,250,0.12)', border: 'rgba(167,139,250,0.25)' },
     checked_in: { text: '#FFA500', bg: 'rgba(255,165,0,0.12)', border: 'rgba(255,165,0,0.25)' },
     expired: { text: '#FF3250', bg: 'rgba(255,50,80,0.12)', border: 'rgba(255,50,80,0.25)' },
     cancelled: { text: '#666', bg: 'rgba(100,100,100,0.1)', border: 'rgba(100,100,100,0.2)' },
@@ -23,6 +24,7 @@ export default function TicketPass({ data }: TicketPassProps) {
 
   const statusLabel = {
     valid: '● Valid Pass',
+    pending_verification: '⏳ Pending Verification',
     checked_in: '● Checked In',
     expired: '● Expired',
     cancelled: '● Cancelled',

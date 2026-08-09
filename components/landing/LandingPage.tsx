@@ -109,10 +109,7 @@ export default function LandingPage() {
 
         <div className="relative z-10 text-center px-6 max-w-5xl mx-auto">
           {/* Badge */}
-          <motion.div
-            initial={{ opacity: 0, y: -12 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.5 }}
+          <div
             className="inline-flex items-center gap-2 px-4 py-2 rounded-full mb-8 text-xs font-semibold tracking-widest uppercase"
             style={{
               background: 'rgba(0,255,102,0.08)',
@@ -121,46 +118,34 @@ export default function LandingPage() {
             }}>
             <span className="w-1.5 h-1.5 rounded-full bg-cyber-green animate-pulse" />
             Campus Event Engine · Now Live
-          </motion.div>
+          </div>
 
           {/* Headline */}
-          <motion.h1
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.6, delay: 0.1 }}
+          <h1
             className="text-5xl md:text-7xl font-black tracking-tight mb-6 leading-[1.05]">
             The Future of<br />
             <span className="text-glow-green">Campus Events</span>
-          </motion.h1>
+          </h1>
 
-          <motion.p
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.6, delay: 0.2 }}
+          <p
             className="text-lg md:text-xl text-white/55 max-w-2xl mx-auto mb-10 leading-relaxed">
             One platform for clubs to publish events, students to claim digital VIP passes,
             and gatekeepers to scan QR codes in real-time — all secured by{' '}
             <span className="text-white/80">Supabase row-level security</span>.
-          </motion.p>
+          </p>
 
-          <motion.div
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.6, delay: 0.3 }}
-            className="flex flex-wrap items-center justify-center gap-4">
+          <div
+            className="flex flex-wrap items-center justify-center gap-4 relative z-50">
             <Link href="/auth?tab=signup&role=org" className="btn-cyber px-8 py-4 text-base">
               Register Your Club <ArrowRight className="w-5 h-5" />
             </Link>
             <Link href="/events" className="btn-cyber-outline px-8 py-4 text-base">
               Explore Campus Events
             </Link>
-          </motion.div>
+          </div>
 
           {/* Social proof */}
-          <motion.div
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            transition={{ duration: 0.6, delay: 0.5 }}
+          <div
             className="flex items-center justify-center gap-6 mt-12 text-sm text-white/40">
             <div className="flex items-center gap-2">
               <CheckCircle2 className="w-4 h-4 text-cyber-green" />
@@ -174,17 +159,15 @@ export default function LandingPage() {
               <CheckCircle2 className="w-4 h-4 text-cyber-green" />
               <span>Setup in 2 minutes</span>
             </div>
-          </motion.div>
+          </div>
         </div>
 
         {/* Scroll cue */}
-        <motion.div
-          animate={{ y: [0, 8, 0] }}
-          transition={{ repeat: Infinity, duration: 2 }}
-          className="absolute bottom-8 left-1/2 -translate-x-1/2 flex flex-col items-center gap-2">
+        <div
+          className="absolute bottom-8 left-1/2 -translate-x-1/2 flex flex-col items-center gap-2 animate-pulse">
           <span className="text-xs text-white/30 tracking-widest uppercase">Scroll</span>
           <div className="w-px h-8 bg-gradient-to-b from-cyber-green/40 to-transparent" />
-        </motion.div>
+        </div>
       </section>
 
       {/* ── Live Ticker ── */}
