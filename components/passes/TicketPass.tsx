@@ -157,7 +157,7 @@ export default function TicketPass({ data }: TicketPassProps) {
         4, 4, 'F'
       )
 
-      const canvas = document.getElementById('ticket-qr-canvas') as HTMLCanvasElement
+      const canvas = document.getElementById('pdf-qr-canvas') as HTMLCanvasElement
       if (canvas) {
         const imgData = canvas.toDataURL('image/png')
         doc.addImage(imgData, 'PNG', (W - qrSize) / 2, qrY, qrSize, qrSize)
@@ -169,12 +169,11 @@ export default function TicketPass({ data }: TicketPassProps) {
 
       doc.setTextColor(80, 90, 100)
       doc.setFontSize(7)
-      doc.text('SCAN QR CODE TO CHECK IN', W / 2, qrY + qrSize + 8, { align: 'center' })
+      doc.text('SCAN TO OPEN LIVE PASS ON YOUR PHONE', W / 2, qrY + qrSize + 8, { align: 'center' })
 
-      // Token ID
       doc.setFontSize(6)
       doc.setTextColor(50, 60, 70)
-      doc.text(`TOKEN: ${dynamicQrToken.slice(0, 24).toUpperCase()}...`, W / 2, H - 12, { align: 'center' })
+      doc.text(`TICKET ID: ${ticket.id.split('-')[0].toUpperCase()}`, W / 2, H - 12, { align: 'center' })
       doc.setDrawColor(0, 255, 102)
       doc.setLineWidth(0.3)
       doc.line(margin, H - 16, W - margin, H - 16)
@@ -315,6 +314,24 @@ export default function TicketPass({ data }: TicketPassProps) {
         <Download className="w-4 h-4" />
         Download PDF Ticket
       </button>
+
+      {/* Hidden QR code used only for the PDF (redirects to the app instead of holding the JWT) */}
+      <div className="hidden">
+        <QRCodeCanvas
+          id="pdf-qr-canvas"
+          value={`${typeof window !== 'undefined' ? window.location.origin : ''}/my-passes`}
+          size={512}
+          level="H"
+          fgColor="#0A0D0F"
+          bgColor="#ffffff"
+          imageSettings={{
+            src: '/logo-qr.png',
+            height: 76,
+            width: 76,
+            excavate: true,
+          }}
+        />
+      </div>
     </div>
   )
 }
