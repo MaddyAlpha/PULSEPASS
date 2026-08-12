@@ -80,13 +80,13 @@ export default function Navbar() {
         <div className="hidden md:flex items-center gap-3">
           {profile ? (
             <div className="flex items-center gap-3">
-              {profile.role === 'supervisor' && (
+              {['supervisor', 'organiser'].includes(profile.role) && (
                 <Link href="/scanner" className="btn-cyber text-sm py-2 px-3">
                   <Scan className="w-4 h-4" />
                   Scanner
                 </Link>
               )}
-              {profile.role === 'committee_admin' && (
+              {['committee_admin', 'organiser'].includes(profile.role) && (
                 <Link href="/verifier" className="text-sm py-2 px-3 rounded-xl font-semibold flex items-center gap-2 transition-all"
                   style={{ background: '#A78BFA', color: '#000' }}>
                   <UserCheck className="w-4 h-4" />
@@ -149,6 +149,18 @@ export default function Navbar() {
           ))}
           {profile ? (
             <>
+              {['supervisor', 'organiser'].includes(profile.role) && (
+                <Link href="/scanner" onClick={() => setMobileOpen(false)} className="flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-medium transition-all duration-200" style={{ color: 'rgba(232,237,242,0.6)' }}>
+                  <Scan className="w-4 h-4" />
+                  Scanner
+                </Link>
+              )}
+              {['committee_admin', 'organiser'].includes(profile.role) && (
+                <Link href="/verifier" onClick={() => setMobileOpen(false)} className="flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-medium transition-all duration-200" style={{ color: 'rgba(232,237,242,0.6)' }}>
+                  <UserCheck className="w-4 h-4" />
+                  Verifier
+                </Link>
+              )}
               <Link href="/profile" onClick={() => setMobileOpen(false)} className="flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-medium transition-all duration-200" style={{ color: 'rgba(232,237,242,0.6)' }}>
                 <User className="w-4 h-4" />
                 Profile
