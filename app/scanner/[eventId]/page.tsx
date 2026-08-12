@@ -127,26 +127,6 @@ export default function GatekeeperScannerPage() {
         setScanState('pending')
         setPendingCount((c) => c + 1)
         if (navigator.vibrate) navigator.vibrate([100, 50, 100])
-
-        // Broadcast to Station 3 using our active channel
-        if (channelRef.current) {
-          channelRef.current.send({
-            type: 'broadcast',
-            event: 'ticket_pending',
-            payload: {
-              ticket_id: data.ticket_id,
-              ticket_type: data.ticket_type,
-              user_id: data.user_id,
-              roll_number: data.roll_number,
-              is_vip: data.is_vip,
-              full_name: (data as any).holderProfile?.full_name,
-              email: (data as any).holderProfile?.email,
-              avatar_url: (data as any).holderProfile?.avatar_url,
-              scanned_at: new Date().toISOString(),
-              event_id: eventId,
-            }
-          })
-        }
       } else {
         const reasonMap: Record<string, { title: string; message: string }> = {
           ALREADY_USED: { title: 'Already Admitted', message: 'This ticket was already fully checked in' },

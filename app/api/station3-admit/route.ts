@@ -1,10 +1,11 @@
 export const runtime = 'edge';
 import { NextRequest, NextResponse } from 'next/server'
-import { createClient } from '@/lib/supabase/server'
+import { createClient, createAdminClient } from '@/lib/supabase/server'
 
 export async function POST(request: NextRequest) {
   try {
     const supabase = await createClient()
+    const adminSupabase = await createAdminClient()
     const { data: { user }, error: authError } = await supabase.auth.getUser()
     if (authError || !user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
@@ -23,7 +24,14 @@ export async function POST(request: NextRequest) {
       p_device_info: device_info || null,
     })
 
-    // Note: Broadcast is now handled client-side by the Verifier UI to avoid edge function 500s
+    // Broadcast final admit to all gate devices
+    if (result?.success) {
+      await adminSupabase.channel(`gate:${event_id}`).send({
+        type: 'broadcast',
+        event: 'ticket_admitted',
+        payload: { ticket_id, event_id, admitted_by: user.id, admitted_at: new Date().toISOString() },
+      })
+    }
 
     return NextResponse.json(result)
   } catch (err) {

@@ -21,7 +21,7 @@ export default function TicketPass({ data }: TicketPassProps) {
     // Only refresh if ticket is valid
     if (ticket.ticket_status !== 'valid' && ticket.ticket_status !== 'pending_verification') return
 
-    const interval = setInterval(async () => {
+    const fetchToken = async () => {
       setIsRefreshing(true)
       try {
         const res = await fetch('/api/tickets/refresh-qr', {
@@ -38,7 +38,10 @@ export default function TicketPass({ data }: TicketPassProps) {
       } finally {
         setIsRefreshing(false)
       }
-    }, 25000)
+    }
+
+    fetchToken()
+    const interval = setInterval(fetchToken, 25000)
 
     return () => clearInterval(interval)
   }, [ticket.id, ticket.ticket_status])

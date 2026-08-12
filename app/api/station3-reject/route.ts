@@ -19,7 +19,7 @@ export async function POST(request: NextRequest) {
     // Set ticket back to cancelled
     const { error } = await supabase
       .from('tickets')
-      .update({ ticket_status: 'cancelled', updated_at: new Date().toISOString() })
+      .update({ ticket_status: 'cancelled', verification_station: null, updated_at: new Date().toISOString() })
       .eq('id', ticket_id)
       .eq('event_id', event_id)
       .eq('ticket_status', 'pending_verification')
