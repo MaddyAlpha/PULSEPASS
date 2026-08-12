@@ -120,7 +120,7 @@ export default function ProfilePage() {
       setIsModalOpen(false)
       setInviteCode('')
     } else {
-      toast.error(res.error)
+      toast.error(res.error || 'Failed to submit code')
     }
     setRequestingRole(false)
   }
