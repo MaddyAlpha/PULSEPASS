@@ -201,8 +201,6 @@ export default function ClaimPage() {
       setOcrStatus('Loading OCR engine...')
       const { createWorker } = await import('tesseract.js')
       const worker = await createWorker('eng', 1, {
-        // Use jsDelivr CDN for fast global delivery + smaller standard model
-        langPath: 'https://cdn.jsdelivr.net/npm/tesseract.js-data@4.0.0/traineddata/fast/',
         logger: (m) => {
           if (m.status === 'loading tesseract core') {
             setOcrStatus(`Loading engine... ${Math.round(m.progress * 100)}%`)
