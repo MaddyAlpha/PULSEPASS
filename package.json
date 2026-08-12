@@ -12,6 +12,7 @@
     "@opentelemetry/api": "^1.9.1",
     "@supabase/ssr": "^0.5.2",
     "@supabase/supabase-js": "^2.45.4",
+    "fabric": "^7.4.0",
     "framer-motion": "^11.3.19",
     "html5-qrcode": "^2.3.8",
     "jose": "^6.2.8",

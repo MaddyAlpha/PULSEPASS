@@ -9,7 +9,7 @@ export async function POST(request: NextRequest) {
     if (authError || !user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
     const { data: profile } = await supabase.from('profiles').select('role').eq('id', user.id).single()
-    if (!profile || !['org_admin', 'committee_admin', 'supervisor', 'super_admin', 'university_admin'].includes(profile.role)) {
+    if (!profile || !['organiser', 'committee_admin', 'supervisor', 'super_admin', 'university_admin'].includes(profile.role)) {
       return NextResponse.json({ error: 'Insufficient permissions' }, { status: 403 })
     }
 

@@ -9,7 +9,7 @@ import type { Profile } from '@/lib/types'
 
 const NAV_LINKS = [
   { href: '/my-passes', label: 'My Passes', icon: Ticket, roles: ['student', 'supervisor', 'committee_admin'] },
-  { href: '/org/dashboard', label: 'Org Dashboard', icon: LayoutDashboard, roles: ['org_admin', 'organiser', 'super_admin'] },
+  { href: '/org/dashboard', label: 'Org Dashboard', icon: LayoutDashboard, roles: ['organiser', 'super_admin'] },
   { href: '/college-admin', label: 'College Portal', icon: GraduationCap, roles: ['college_admin', 'super_admin'] },
   { href: '/university-admin', label: 'University Portal', icon: GraduationCap, roles: ['university_admin', 'super_admin'] },
   { href: '/super-admin', label: 'Super Admin', icon: Shield, roles: ['super_admin'] },

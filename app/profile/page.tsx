@@ -171,7 +171,7 @@ export default function ProfilePage() {
   const getRoleIcon = () => {
     switch (profile.role) {
       case 'student': return GraduationCap
-      case 'org_admin': return Building2
+      case 'organiser': return Building2
       case 'supervisor': return Shield
       case 'super_admin': return Zap
       default: return User
@@ -296,6 +296,7 @@ export default function ProfilePage() {
           {/* =========================================
               SECTION 4: Role Elevation Trigger
               ========================================= */}
+          {/* If they are not an organiser or super admin, show the Organiser Application CTA */}
           {profile.role !== 'organiser' && (
             <motion.div initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.3 }}
               className="glass-card p-6 rounded-2xl border border-amber-500/20 bg-amber-500/5 flex flex-col sm:flex-row sm:items-center justify-between gap-4">

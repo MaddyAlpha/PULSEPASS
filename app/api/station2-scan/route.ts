@@ -25,7 +25,7 @@ export async function POST(request: NextRequest) {
     const { data: profile } = await supabase
       .from('profiles').select('role').eq('id', user.id).single()
 
-    if (!profile || !['org_admin', 'committee_admin', 'supervisor', 'super_admin'].includes(profile.role)) {
+    if (!profile || !['organiser', 'committee_admin', 'supervisor', 'super_admin'].includes(profile.role)) {
       return NextResponse.json({ error: 'Must be a supervisor or org admin' }, { status: 403 })
     }
 

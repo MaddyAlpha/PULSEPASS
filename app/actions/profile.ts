@@ -10,48 +10,41 @@ export async function requestOrganiserAccess(code: string, userId: string, unive
     return { success: false, error: 'Missing required parameters' }
   }
 
-  const { data: inviteCode, error: fetchError } = await supabase
-    .from('college_invite_codes')
-    .select(`
-      code, 
-      college_id,
-      college:colleges (
-        university_id,
-        roll_number_regex,
-        roll_number_format_hint
-      )
-    `)
-    .eq('code', code.toUpperCase())
-    .eq('is_active', true)
+  // Use a secure RPC to fetch the invite code without needing a Service Role Key locally
+  const { data, error: fetchError } = await supabase
+    .rpc('validate_admin_invite_code', { p_code: code.toUpperCase() })
     .single()
+
+  const inviteCode = data as any
 
   if (fetchError || !inviteCode) {
     return { success: false, error: 'Invalid or expired invite code' }
   }
 
+  if (inviteCode.role !== 'organiser') {
+    return { success: false, error: 'This code is not meant for an organiser role' }
+  }
+
   // Fetch user's roll number to validate against college regex
   const { data: profile } = await supabase.from('profiles').select('roll_number').eq('id', userId).single()
   
-  // Check college regex if it exists
-  const college = (Array.isArray(inviteCode.college) ? inviteCode.college[0] : inviteCode.college) as any
-  if (college?.roll_number_regex && profile?.roll_number) {
-    const regex = new RegExp(college.roll_number_regex)
+  if (inviteCode.roll_number_regex && profile?.roll_number) {
+    const regex = new RegExp(inviteCode.roll_number_regex)
     if (!regex.test(profile.roll_number)) {
       return { 
         success: false, 
-        error: `Your roll number does not match this college's required format: ${college.roll_number_format_hint || 'Contact College Admin'}` 
+        error: `Your roll number does not match this college's required format: ${inviteCode.roll_number_format_hint || 'Contact College Admin'}` 
       }
     }
   }
 
   // Submit role request
-  const collegeInfo = (Array.isArray(inviteCode.college) ? inviteCode.college[0] : inviteCode.college) as any
   const { error: requestError } = await supabase
     .from('role_requests')
     .insert({
       user_id: userId,
       college_id: inviteCode.college_id,
-      university_id: collegeInfo?.university_id || universityId,
+      university_id: inviteCode.university_id || universityId,
       invite_code: inviteCode.code,
       status: 'pending'
     })
@@ -64,12 +57,11 @@ export async function requestOrganiserAccess(code: string, userId: string, unive
   }
   
   // IMMEDIATELY EXPIRE the invite code after it is successfully submitted.
-  // We use the admin client because students don't have RLS permission to update the invite codes table.
-  const adminSupabase = await createAdminClient()
-  await adminSupabase
-    .from('college_invite_codes')
-    .update({ is_active: false })
-    .eq('code', inviteCode.code)
+  // We use another secure RPC to consume the code without needing RLS bypass or Service Keys.
+  await supabase.rpc('consume_admin_invite_code', { 
+    p_code: inviteCode.code, 
+    p_user_id: userId 
+  })
 
   revalidatePath('/profile')
   return { success: true }

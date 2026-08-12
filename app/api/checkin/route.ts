@@ -18,7 +18,7 @@ export async function POST(request: NextRequest) {
       .eq('id', user.id)
       .single()
 
-    if (!profile || !['supervisor', 'org_admin', 'super_admin'].includes(profile.role)) {
+    if (!profile || !['supervisor', 'organiser', 'super_admin'].includes(profile.role)) {
       return NextResponse.json({ error: 'Insufficient permissions. Must be a supervisor.' }, { status: 403 })
     }
 

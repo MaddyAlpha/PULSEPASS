@@ -9,6 +9,7 @@ export default function CommitteesTab({ org, profile }: { org: any, profile: any
   const supabase = createClient()
   const [committees, setCommittees] = useState<any[]>([])
   const [batchCodes, setBatchCodes] = useState<any[]>([])
+  const [crs, setCrs] = useState<any[]>([])
   const [loading, setLoading] = useState(true)
 
   // Committee Creation
@@ -44,6 +45,17 @@ export default function CommitteesTab({ org, profile }: { org: any, profile: any
         .select('*')
         .eq('university_id', profile.university_id_fk)
       setBatchCodes(batches || [])
+    }
+
+    // Fetch Assigned CRs in this college
+    if (profile?.college_id) {
+      const { data: crData } = await supabase
+        .from('profiles')
+        .select('id, full_name, roll_number, cr_batch_prefix')
+        .eq('college_id', profile.college_id)
+        .eq('role', 'supervisor')
+      
+      setCrs(crData || [])
     }
     
     setLoading(false)
@@ -111,6 +123,7 @@ export default function CommitteesTab({ org, profile }: { org: any, profile: any
       toast.success('CR Verifier assigned successfully!')
       setCrRoll('')
       setCrBatchCode('')
+      fetchData() // Refresh list
     } catch (err: any) {
       toast.error(err.message || 'Failed to assign CR Verifier')
     } finally {
@@ -172,6 +185,25 @@ export default function CommitteesTab({ org, profile }: { org: any, profile: any
             </button>
           </div>
         </form>
+
+        {crs.length > 0 && (
+          <div className="mt-6 pt-6 border-t border-white/10">
+            <h3 className="text-sm font-bold text-white/70 uppercase tracking-wider mb-3">Currently Assigned CRs</h3>
+            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3">
+              {crs.map(cr => (
+                <div key={cr.id} className="p-3 rounded-lg border border-white/5 bg-white/5 flex items-center justify-between">
+                  <div>
+                    <p className="text-sm font-bold">{cr.full_name || 'No Name'}</p>
+                    <p className="text-xs text-white/50 font-mono">{cr.roll_number}</p>
+                  </div>
+                  <div className="px-2 py-1 rounded text-[10px] font-bold bg-purple-500/20 text-purple-400 border border-purple-500/30">
+                    {cr.cr_batch_prefix || 'ALL'}
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
       </div>
 
       {/* Committees Management Panel */}

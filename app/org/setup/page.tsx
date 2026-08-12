@@ -82,10 +82,8 @@ export default function OrgSetupWizard() {
       const { data: profile } = await supabase.from('profiles').select('university_id_fk').eq('id', user.id).single()
       const targetUniId = profile?.university_id_fk || selectedUni.id
 
-      // 1. Ensure they are org_admin and update their profile to link to this university FIRST
-      // This is required so that the RLS policy 'orgs_insert_owner' allows them to insert into organizations.
+      // 1. Ensure their profile is linked to this university
       const { error: profileError } = await supabase.from('profiles').update({
-        role: 'org_admin',
         university_id_fk: targetUniId
       }).eq('id', user.id)
 
@@ -101,11 +99,7 @@ export default function OrgSetupWizard() {
         university_id: targetUniId
       }).select().single()
 
-      if (orgError) {
-        // Revert role if org creation fails
-        await supabase.from('profiles').update({ role: 'organiser' }).eq('id', user.id)
-        throw orgError
-      }
+      if (orgError) throw orgError
 
       toast.success('Organization registered successfully!')
       router.push('/org/dashboard')

@@ -5,7 +5,7 @@
 
 export type UserRole =
   | 'student'
-  | 'org_admin'
+  | 'organiser'
   | 'committee_admin'
   | 'college_admin'
   | 'university_admin'
@@ -395,7 +395,7 @@ export interface SignUpForm {
   email: string
   password: string
   full_name: string
-  role: 'student' | 'org_admin'
+  role: 'student' | 'organiser'
   org_name?: string
   org_department?: string
   verification_code?: string

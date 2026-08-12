@@ -11,8 +11,7 @@ function getRoleHome(role: string): string {
     case 'super_admin': return '/super-admin'
     case 'university_admin': return '/university-admin'
     case 'college_admin': return '/college-admin'
-    case 'org_admin': return '/org/dashboard'
-    case 'organiser': return '/org/setup'
+    case 'organiser': return '/org/dashboard'
     case 'supervisor':
     case 'committee_admin': return '/my-passes'
     case 'student':
@@ -80,7 +79,7 @@ export async function middleware(request: NextRequest) {
     if (pathname.startsWith('/college-admin') && !['super_admin', 'university_admin', 'college_admin'].includes(role)) {
       return NextResponse.redirect(new URL(home, request.url))
     }
-    if (pathname.startsWith('/org') && !['super_admin', 'university_admin', 'college_admin', 'organiser', 'org_admin'].includes(role)) {
+    if (pathname.startsWith('/org') && !['super_admin', 'university_admin', 'college_admin', 'organiser'].includes(role)) {
       return NextResponse.redirect(new URL(home, request.url))
     }
   }

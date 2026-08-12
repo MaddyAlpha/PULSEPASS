@@ -37,8 +37,8 @@ const ROLE_OPTIONS = [
     border: 'rgba(167,139,250,0.25)',
   },
   {
-    value: 'org_admin',
-    label: 'Organiser Admin',
+    value: 'organiser',
+    label: 'Organiser',
     desc: 'Full dashboard + all stations',
     icon: Shield,
     color: '#F59E0B',
@@ -115,8 +115,9 @@ export default function OrgDashboardPage() {
         .from('profiles').select('*').eq('id', user.id).single()
       setProfile(profileData)
 
-      if (profileData?.role !== 'org_admin' && profileData?.role !== 'super_admin' && profileData?.role !== 'organiser') {
-        router.push('/auth')
+      // Authorization check - must be organiser or super admin
+      if (profileData?.role !== 'organiser' && profileData?.role !== 'super_admin') {
+        router.push('/my-passes')
         return
       }
 
@@ -165,7 +166,7 @@ export default function OrgDashboardPage() {
       // Fetch supervisors
       const { data: supsData } = await supabase
         .from('org_members_supervisors')
-        .select('*, profile:profiles(full_name, email, role)')
+        .select('*')
         .eq('org_id', fetchedOrg.id)
       setSupervisors(supsData || [])
 
@@ -342,7 +343,7 @@ export default function OrgDashboardPage() {
         <div className="text-center max-w-md">
           <Zap className="w-12 h-12 text-cyber-green mx-auto mb-4" />
           <h2 className="text-xl font-bold mb-2">No Organization Found</h2>
-          <p className="text-white/50 mb-6">You need an org_admin account with an organization linked.</p>
+          <p className="text-white/50 mb-6">You need an organiser account with an organization linked.</p>
           <Link href="/org/setup" className="btn-cyber">Setup Organization</Link>
         </div>
       </div>
@@ -370,34 +371,16 @@ export default function OrgDashboardPage() {
   const handleAssignRole = async (userId: string, newRole: string) => {
     setRoleAssigning(true)
     try {
-      const { error } = await supabase
-        .from('profiles')
-        .update({ 
-          role: newRole,
-          cr_batch_prefix: newRole === 'committee_admin' && selectedBatchPrefix ? selectedBatchPrefix : null
-        })
-        .eq('id', userId)
-      if (error) throw error
+      // We must use a database RPC function to bypass RLS on the profiles table.
+      // Otherwise, updating another user's profile fails silently.
+      const { error: rpcError } = await supabase.rpc('assign_org_role', {
+        target_user_id: userId,
+        new_role: newRole,
+        new_batch_prefix: newRole === 'committee_admin' && selectedBatchPrefix ? selectedBatchPrefix : null,
+        target_org_id: org?.id || null
+      })
 
-      // Also add to org_members_supervisors if not already there
-      if (['supervisor', 'committee_admin', 'org_admin'].includes(newRole) && org) {
-        let orgMemberRole = 'supervisor'
-        if (newRole === 'committee_admin' || newRole === 'org_admin') {
-          orgMemberRole = 'admin'
-        }
-
-        const { error: orgError } = await supabase.from('org_members_supervisors').upsert({
-          org_id: org.id,
-          user_id: userId,
-          member_role: orgMemberRole,
-          invited_by: profile?.id,
-          invite_email: roleSearchResult?.email,
-          event_scopes: [],
-          accepted: true
-        }, { onConflict: 'org_id,user_id' })
-        
-        if (orgError) throw orgError
-      }
+      if (rpcError) throw rpcError
 
       toast.success(`Role assigned: ${ROLE_OPTIONS.find(r => r.value === newRole)?.label}`)
       setRoleSearchResult((prev: any) => ({ ...prev, role: newRole }))
@@ -420,10 +403,11 @@ export default function OrgDashboardPage() {
   const handleRemoveRole = async (userId: string) => {
     if (!confirm('Remove this person\'s role? They will become a regular student.')) return
     try {
-      await supabase.from('profiles').update({ role: 'student' }).eq('id', userId)
-      if (org) {
-        await supabase.from('org_members_supervisors').delete().eq('user_id', userId).eq('org_id', org.id)
-      }
+      const { error: rpcError } = await supabase.rpc('remove_org_role', {
+        target_user_id: userId,
+        target_org_id: org?.id || null
+      })
+      if (rpcError) throw rpcError
       toast.success('Role removed')
       setTeamMembers(prev => prev.filter(m => m.id !== userId))
     } catch (err: any) {

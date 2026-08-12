@@ -3,7 +3,7 @@ export const runtime = 'edge';
  * POST /api/tickets/vip
  *
  * Issues a VIP pass directly for a student, bypassing OCR.
- * Only callable by committee_admin, org_admin, university_admin, or super_admin.
+ * Only callable by committee_admin, organiser, university_admin, or super_admin.
  *
  * Body: { event_id, student_email, roll_number?, notes? }
  */
@@ -29,7 +29,7 @@ export async function POST(request: NextRequest) {
       .eq('id', user.id)
       .single()
 
-    const allowedRoles = ['org_admin', 'committee_admin', 'college_admin', 'university_admin', 'super_admin']
+    const allowedRoles = ['organiser', 'committee_admin', 'college_admin', 'university_admin', 'super_admin']
     if (!callerProfile || !allowedRoles.includes(callerProfile.role)) {
       return NextResponse.json({ error: 'Insufficient permissions. Must be an org admin or higher.' }, { status: 403 })
     }

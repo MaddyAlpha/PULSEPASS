@@ -56,7 +56,7 @@ export default function GatekeeperScannerPage() {
       if (!user) { router.push('/auth'); return }
 
       const { data: profile } = await supabase.from('profiles').select('role').eq('id', user.id).single()
-      const isAuth = ['org_admin', 'committee_admin', 'supervisor', 'super_admin'].includes(profile?.role || '')
+      const isAuth = ['organiser', 'committee_admin', 'supervisor', 'super_admin'].includes(profile?.role || '')
       setAuthorized(isAuth)
       if (!isAuth) { setAuthChecking(false); return }
 
