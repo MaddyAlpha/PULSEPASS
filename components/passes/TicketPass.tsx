@@ -142,34 +142,31 @@ export default function TicketPass({ data }: TicketPassProps) {
         doc.text(`ROLL NO: ${holder.university_id}`, margin, yStart + 54)
       }
 
-      // QR Code
-      const qrSize = 50
-      const qrPadding = 5
-      const qrY = H - qrSize - 40
-      
-      // Draw white rounded background to match the website UI perfectly
-      doc.setFillColor(255, 255, 255)
-      doc.roundedRect(
-        (W - qrSize) / 2 - qrPadding, 
-        qrY - qrPadding, 
-        qrSize + (qrPadding * 2), 
-        qrSize + (qrPadding * 2), 
-        4, 4, 'F'
-      )
+      const appUrl = `${typeof window !== 'undefined' ? window.location.origin : 'https://pulsepass.vercel.app'}/my-passes`
 
-      const canvas = document.getElementById('pdf-qr-canvas') as HTMLCanvasElement
-      if (canvas) {
-        const imgData = canvas.toDataURL('image/png')
-        doc.addImage(imgData, 'PNG', (W - qrSize) / 2, qrY, qrSize, qrSize)
-      } else {
-        // Fallback if canvas is somehow missing
-        doc.setFillColor(255, 255, 255)
-        doc.roundedRect((W - qrSize) / 2, qrY, qrSize, qrSize, 2, 2, 'F')
-      }
+      // Draw a "Sticker / Button" instead of a QR Code
+      const buttonWidth = 80
+      const buttonHeight = 16
+      const buttonX = (W - buttonWidth) / 2
+      const buttonY = H - 60
 
-      doc.setTextColor(80, 90, 100)
+      doc.setFillColor(0, 255, 102) // Cyber Green
+      doc.roundedRect(buttonX, buttonY, buttonWidth, buttonHeight, 3, 3, 'F')
+
+      // Button Text
+      doc.setTextColor(10, 13, 15) // Dark text
+      doc.setFontSize(9)
+      doc.setFont('helvetica', 'bold')
+      doc.text('TAP HERE TO OPEN LIVE PASS', W / 2, buttonY + 10.5, { align: 'center' })
+
+      // Make the entire button area clickable!
+      doc.link(buttonX, buttonY, buttonWidth, buttonHeight, { url: appUrl })
+
+      // Subtitle below button
+      doc.setTextColor(100, 110, 120)
       doc.setFontSize(7)
-      doc.text('SCAN TO OPEN LIVE PASS ON YOUR PHONE', W / 2, qrY + qrSize + 8, { align: 'center' })
+      doc.setFont('helvetica', 'normal')
+      doc.text('(Requires internet connection to verify at the door)', W / 2, buttonY + 22, { align: 'center' })
 
       doc.setFontSize(6)
       doc.setTextColor(50, 60, 70)
@@ -314,24 +311,6 @@ export default function TicketPass({ data }: TicketPassProps) {
         <Download className="w-4 h-4" />
         Download PDF Ticket
       </button>
-
-      {/* Hidden QR code used only for the PDF (redirects to the app instead of holding the JWT) */}
-      <div className="hidden">
-        <QRCodeCanvas
-          id="pdf-qr-canvas"
-          value={`${typeof window !== 'undefined' ? window.location.origin : ''}/my-passes`}
-          size={512}
-          level="H"
-          fgColor="#0A0D0F"
-          bgColor="#ffffff"
-          imageSettings={{
-            src: '/logo-qr.png',
-            height: 76,
-            width: 76,
-            excavate: true,
-          }}
-        />
-      </div>
     </div>
   )
 }
