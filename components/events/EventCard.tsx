@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useEffect } from 'react'
+import { useParams } from 'next/navigation'
 import Link from 'next/link'
 import { motion } from 'framer-motion'
 import {
@@ -41,6 +42,8 @@ function CountdownBadge({ startsAt }: { startsAt: string }) {
 }
 
 export default function EventCard({ event }: EventCardProps) {
+  const { tenant_slug } = useParams() as { tenant_slug: string }
+
   const generalFull = event.general_tickets_sold >= event.general_capacity
   const vipFull = event.vip_capacity > 0 && event.vip_tickets_sold >= event.vip_capacity
   const generalRemaining = event.general_capacity - event.general_tickets_sold
@@ -50,7 +53,7 @@ export default function EventCard({ event }: EventCardProps) {
   const fillPercent = Math.round((event.general_tickets_sold / Math.max(event.general_capacity, 1)) * 100)
 
   return (
-    <Link href={`/events/${event.id}`} className="block h-full">
+    <Link href={`/u/${tenant_slug}/events/${event.id}`} className="block h-full">
       <motion.div
         whileHover={{ y: -4 }}
         transition={{ duration: 0.2 }}
