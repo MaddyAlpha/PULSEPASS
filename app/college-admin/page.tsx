@@ -4,12 +4,14 @@ import { useState, useEffect } from 'react'
 import { motion } from 'framer-motion'
 import {
   Building2, CheckCircle2, XCircle, Loader2,
-  RefreshCw, LogOut, Clock, GraduationCap, Users
+  RefreshCw, LogOut, Clock, GraduationCap, Users, Trash2
 } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 import { useRouter } from 'next/navigation'
 import toast from 'react-hot-toast'
 import Link from 'next/link'
+import VisualRegexBuilder, { RegexBlock } from '@/components/ui/VisualRegexBuilder'
+import CollegeRegexSpecializer from '@/components/ui/CollegeRegexSpecializer'
 
 type JoinRequest = {
   id: string
@@ -20,6 +22,13 @@ type JoinRequest = {
   created_at: string
   org: { name: string; slug: string; description: string | null }
   college: { name: string } | null
+}
+
+type InviteCode = {
+  id: string
+  code: string
+  is_used: boolean
+  created_at: string
 }
 
 type Organization = {
@@ -40,8 +49,15 @@ export default function CollegeAdminPage() {
   const [collegeId, setCollegeId] = useState<string | null>(null)
   const [actionLoading, setActionLoading] = useState<string | null>(null)
   const [rejectNote, setRejectNote] = useState<{ id: string; note: string } | null>(null)
+  const [inviteCodes, setInviteCodes] = useState<InviteCode[]>([])
 
-  const [tab, setTab] = useState<'requests' | 'organizations'>('requests')
+  const [tab, setTab] = useState<'requests' | 'organizations' | 'invite_codes' | 'security'>('requests')
+
+  // Security / Regex state
+  const [colRegexBlocks, setColRegexBlocks] = useState<RegexBlock[]>([])
+  const [colRegexStr, setColRegexStr] = useState('')
+  const [colRegexHint, setColRegexHint] = useState('')
+  const [uniRegexBlocks, setUniRegexBlocks] = useState<RegexBlock[] | null>(null)
 
   const fetchData = async () => {
     const { data: { user } } = await supabase.auth.getUser()
@@ -49,14 +65,34 @@ export default function CollegeAdminPage() {
 
     const { data: profile } = await supabase.from('profiles').select('*').eq('id', user.id).single()
     if (!profile || !['college_admin', 'super_admin'].includes(profile.role)) {
-      router.push('/events')
+      router.push('/auth')
       return
     }
 
     if (profile.college_id) {
       setCollegeId(profile.college_id)
-      const { data: col } = await supabase.from('colleges').select('name').eq('id', profile.college_id).single()
+      const { data: col } = await supabase.from('colleges').select('university_id, name, roll_number_regex, roll_number_format_hint, roll_number_regex_blocks').eq('id', profile.college_id).single()
       setCollegeName(col?.name || 'Your College')
+      
+      let parsedColBlocks = col?.roll_number_regex_blocks
+      if (typeof parsedColBlocks === 'string') {
+        try { parsedColBlocks = JSON.parse(parsedColBlocks) } catch (e) {}
+      }
+      if (parsedColBlocks && Array.isArray(parsedColBlocks)) setColRegexBlocks(parsedColBlocks as unknown as RegexBlock[])
+      
+      if (col?.roll_number_regex) setColRegexStr(col.roll_number_regex)
+      if (col?.roll_number_format_hint) setColRegexHint(col.roll_number_format_hint)
+
+      if (col?.university_id) {
+        const { data: uni } = await supabase.from('universities').select('roll_number_regex_blocks').eq('id', col.university_id).single()
+        let parsedUniBlocks = uni?.roll_number_regex_blocks
+        if (typeof parsedUniBlocks === 'string') {
+          try { parsedUniBlocks = JSON.parse(parsedUniBlocks) } catch (e) {}
+        }
+        if (parsedUniBlocks && Array.isArray(parsedUniBlocks) && parsedUniBlocks.length > 0) {
+          setUniRegexBlocks(parsedUniBlocks as unknown as RegexBlock[])
+        }
+      }
     }
 
     // Fetch join requests for this college
@@ -79,6 +115,15 @@ export default function CollegeAdminPage() {
         .eq('college_id', profile.college_id)
         .order('name')
       setOrganizations(orgs || [])
+
+      // Fetch invite codes
+      const { data: codes } = await supabase
+        .from('admin_invite_codes')
+        .select('id, code, is_used, created_at')
+        .eq('college_id', profile.college_id)
+        .eq('role', 'organiser')
+        .order('created_at', { ascending: false })
+      setInviteCodes((codes as any[]) || [])
     }
 
     const { data } = await query
@@ -157,6 +202,77 @@ export default function CollegeAdminPage() {
     }
   }
 
+  const handleGenerateInviteCode = async () => {
+    if (!collegeId) {
+      toast.error('You must be assigned to a specific College to generate codes.')
+      return
+    }
+    setActionLoading('generate_code')
+    try {
+      // Get the university_id from the college record, not the profile
+      const { data: col } = await supabase.from('colleges').select('university_id').eq('id', collegeId).single()
+      if (!col?.university_id) throw new Error('University ID not found for this college')
+
+      // Generate a random 6 character code (alphanumeric)
+      const code = Math.random().toString(36).substring(2, 8).toUpperCase()
+      
+      const { error } = await supabase
+        .from('admin_invite_codes')
+        .insert({
+          college_id: collegeId,
+          university_id: col.university_id,
+          code,
+          role: 'organiser',
+          created_by: (await supabase.auth.getUser()).data.user?.id
+        })
+      
+      if (error) throw error
+      toast.success('Invite code generated successfully!')
+      fetchData()
+    } catch (err: any) {
+      toast.error(err.message || 'Failed to generate code')
+    } finally {
+      setActionLoading(null)
+    }
+  }
+
+  const handleDeleteCode = async (id: string) => {
+    setActionLoading(id)
+    try {
+      const { error } = await supabase
+        .from('admin_invite_codes')
+        .delete()
+        .eq('id', id)
+      
+      if (error) throw error
+      toast.success('Code deleted.')
+      fetchData()
+    } catch (err: any) {
+      toast.error(err.message || 'Failed to delete code')
+    } finally {
+      setActionLoading(null)
+    }
+  }
+
+  const handleSaveRegex = async () => {
+    if (!collegeId) return
+    setActionLoading('save_regex')
+    try {
+      const { data, error } = await supabase.from('colleges').update({
+        roll_number_regex: colRegexStr,
+        roll_number_format_hint: colRegexHint,
+        roll_number_regex_blocks: colRegexBlocks
+      }).eq('id', collegeId).select('id')
+      if (error) throw error
+      if (!data || data.length === 0) throw new Error('Database rejected the update. You may not have permission to modify this college.')
+      toast.success('Roll Number format saved for this college!')
+    } catch (err: any) {
+      toast.error(err.message || 'Failed to save format')
+    } finally {
+      setActionLoading(null)
+    }
+  }
+
   if (loading) return (
     <div className="min-h-screen bg-obsidian-950 flex items-center justify-center">
       <Loader2 className="w-8 h-8 text-cyber-green animate-spin" />
@@ -186,7 +302,7 @@ export default function CollegeAdminPage() {
             <button onClick={fetchData} className="p-2 rounded-lg text-white/40 hover:text-white hover:bg-white/5 transition-all">
               <RefreshCw className="w-4 h-4" />
             </button>
-            <Link href="/events" className="flex items-center gap-2 px-3 py-2 rounded-lg text-white/40 hover:text-white hover:bg-white/5 transition-all text-sm">
+            <Link href="/my-passes" className="flex items-center gap-2 px-3 py-2 rounded-lg text-white/40 hover:text-white hover:bg-white/5 transition-all text-sm">
               <LogOut className="w-4 h-4" /> Back to App
             </Link>
           </div>
@@ -200,6 +316,14 @@ export default function CollegeAdminPage() {
           <button onClick={() => setTab('organizations')}
             className={`px-4 py-2 text-sm font-bold rounded-lg transition-all ${tab === 'organizations' ? 'bg-cyber-green/10 text-cyber-green border border-cyber-green/20' : 'text-white/40 hover:bg-white/5'}`}>
             Active Organizations
+          </button>
+          <button onClick={() => setTab('invite_codes')}
+            className={`px-4 py-2 text-sm font-bold rounded-lg transition-all ${tab === 'invite_codes' ? 'bg-cyber-green/10 text-cyber-green border border-cyber-green/20' : 'text-white/40 hover:bg-white/5'}`}>
+            Invite Codes
+          </button>
+          <button onClick={() => setTab('security')}
+            className={`px-4 py-2 text-sm font-bold rounded-lg transition-all ${tab === 'security' ? 'bg-cyber-green/10 text-cyber-green border border-cyber-green/20' : 'text-white/40 hover:bg-white/5'}`}>
+            Security
           </button>
         </div>
       </div>
@@ -362,6 +486,109 @@ export default function CollegeAdminPage() {
                   <p className="text-white/40">No organizations linked to this college yet.</p>
                 </div>
               )}
+            </div>
+          </div>
+        )}
+
+        {tab === 'invite_codes' && (
+          <div>
+            <div className="flex items-center justify-between mb-6">
+              <div>
+                <h2 className="text-2xl font-black">Organiser Invite Codes</h2>
+                <p className="text-sm text-white/50 mt-1">Generate access codes for students to apply for organiser roles.</p>
+              </div>
+              <button
+                onClick={handleGenerateInviteCode}
+                disabled={actionLoading === 'generate_code'}
+                className="flex items-center gap-2 px-5 py-2.5 rounded-xl font-bold text-black transition-all disabled:opacity-50"
+                style={{ background: '#00FF66' }}>
+                {actionLoading === 'generate_code' ? <Loader2 className="w-4 h-4 animate-spin" /> : <RefreshCw className="w-4 h-4" />}
+                Generate New Code
+              </button>
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              {inviteCodes.map(code => (
+                <div key={code.id} className="p-4 rounded-xl border border-white/5 flex items-center justify-between"
+                  style={{ background: !code.is_used ? 'rgba(255,255,255,0.02)' : 'rgba(255,255,255,0.01)' }}>
+                  <div>
+                    <p className={`font-mono text-xl tracking-wider font-bold ${!code.is_used ? 'text-white' : 'text-white/30 line-through'}`}>{code.code}</p>
+                    <p className="text-xs text-white/40 mt-1">Generated: {new Date(code.created_at).toLocaleDateString()}</p>
+                  </div>
+                  <div className="flex items-center gap-3">
+                    <span className={`text-xs px-3 py-1 rounded-full font-bold border ${!code.is_used ? 'bg-cyber-green/10 text-cyber-green border-cyber-green/30' : 'bg-white/5 text-white/30 border-white/10'}`}>
+                      {!code.is_used ? 'ACTIVE' : 'USED'}
+                    </span>
+                    <button
+                      onClick={() => handleDeleteCode(code.id)}
+                      disabled={actionLoading === code.id}
+                      className="p-2 rounded-lg bg-white/5 text-white/50 hover:bg-white/10 hover:text-red-400 transition-all disabled:opacity-50">
+                      {actionLoading === code.id ? <Loader2 className="w-4 h-4 animate-spin" /> : <Trash2 className="w-4 h-4" />}
+                    </button>
+                  </div>
+                </div>
+              ))}
+              {inviteCodes.length === 0 && (
+                <div className="col-span-full py-12 text-center border border-white/[0.06] rounded-2xl border-dashed">
+                  <p className="text-white/40">No invite codes generated yet.</p>
+                </div>
+              )}
+            </div>
+          </div>
+        )}
+
+        {tab === 'security' && (
+          <div className="space-y-6">
+            <div className="flex items-center gap-3 mb-6">
+              <h2 className="text-2xl font-black">Security Settings</h2>
+            </div>
+            
+            <div className="glass-card p-6">
+              <h3 className="text-lg font-bold text-cyber-green mb-2">College Specific Roll Number Format</h3>
+              <p className="text-sm text-white/40 mb-6 max-w-2xl">
+                {uniRegexBlocks 
+                  ? "Your university has defined a master format. You can lock specific parts of it (like your department code) to strictly enforce them for your college." 
+                  : "Define a strict format for roll numbers at your specific college. When students try to join your college or its committees, they will be forced to match this pattern exactly."}
+              </p>
+
+              {uniRegexBlocks ? (
+                <CollegeRegexSpecializer
+                  universityBlocks={uniRegexBlocks}
+                  initialCollegeBlocks={colRegexBlocks.length > 0 ? colRegexBlocks : undefined}
+                  onChange={(regex, hint, blocks) => {
+                    setColRegexStr(regex)
+                    setColRegexHint(hint)
+                    setColRegexBlocks(blocks)
+                  }}
+                />
+              ) : (
+                <VisualRegexBuilder 
+                  initialBlocks={colRegexBlocks}
+                  onChange={(regex, hint, blocks) => {
+                    setColRegexStr(regex)
+                    setColRegexHint(hint)
+                    setColRegexBlocks(blocks)
+                  }}
+                />
+              )}
+
+              <div className="mt-6 p-4 rounded-xl bg-black/40 border border-white/[0.06] flex items-center justify-between">
+                <div>
+                  <p className="text-xs text-white/40 uppercase font-bold tracking-wider mb-1">Generated Pattern</p>
+                  <p className="font-mono text-sm text-amber-400">{colRegexStr || 'No pattern set'}</p>
+                </div>
+                <div>
+                  <p className="text-xs text-white/40 uppercase font-bold tracking-wider mb-1">Example Hint</p>
+                  <p className="font-mono text-sm text-cyber-green">{colRegexHint || 'No hint set'}</p>
+                </div>
+                <button
+                  onClick={handleSaveRegex}
+                  disabled={actionLoading === 'save_regex' || !colRegexStr}
+                  className="btn-cyber flex items-center gap-2"
+                >
+                  {actionLoading === 'save_regex' ? <Loader2 className="w-4 h-4 animate-spin" /> : 'Save Format'}
+                </button>
+              </div>
             </div>
           </div>
         )}

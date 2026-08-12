@@ -1,0 +1,13 @@
+
+SUPERVISOR MAKING SYSTEM IS BROKEN 
+        Why they still see "Student" and no scanner
+        In the app/org/dashboard/page.tsx file, when you click invite, the code tries to upgrade their account with this line: await supabase.from('profiles').update({ role: 'supervisor' }) However, the database has a strict security rule (Row Level Security) that says "users can only edit their own profile." Because you are logged in as the Org Admin trying to edit someone else's profile, the database silently blocks the change to protect their account. Because it fails silently, no error is shown to you, but the person's account remains as a 'student'.
+
+        2. Why your dashboard's supervisor list is empty
+        The student did successfully get added to the org_members_supervisors database table! But the reason they aren't showing up on your screen is due to a data-fetching bug. When the dashboard tries to load the list of supervisors, it asks the database to attach their profile data (like their name and email). However, the supervisor table has two connections to the profiles table (one for the user being invited, and one for the person who invited them). Because the code doesn't specify which connection to use, Supabase gets confused, crashes the fetch request silently, and returns an empty list [] to your screen.
+
+        Summary: The invite system is currently broken in the code. The database security is blocking you from changing their role to supervisor, and a database querying error is preventing your dashboard from displaying the supervisors that were actually added.
+
+THERE SHOULD BE A NOTIFICATION BELL AT TOP...
+
+(LOW PRIORITY)THERE SHOULD BE A GOOD ROLL NUMBER SETTNG SYSTEM WHILE CREATING A DRAFT OF THE EVENT.

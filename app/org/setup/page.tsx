@@ -49,6 +49,17 @@ export default function OrgSetupWizard() {
         .order('name')
       
       setUniversities(unis || [])
+
+      // Check if user already has a university assigned
+      const { data: profile } = await supabase.from('profiles').select('university_id_fk').eq('id', user.id).single()
+      if (profile?.university_id_fk) {
+        const userUni = (unis || []).find(u => u.id === profile.university_id_fk)
+        if (userUni) {
+          setSelectedUni(userUni)
+          setStep(2)
+        }
+      }
+
       setLoading(false)
     }
     init()
@@ -68,25 +79,33 @@ export default function OrgSetupWizard() {
 
       const slug = orgForm.name.toLowerCase().replace(/\s+/g, '-').replace(/[^a-z0-9-]/g, '') + '-' + Date.now().toString().slice(-4)
 
-      // 1. Create Organization
+      const { data: profile } = await supabase.from('profiles').select('university_id_fk').eq('id', user.id).single()
+      const targetUniId = profile?.university_id_fk || selectedUni.id
+
+      // 1. Ensure they are org_admin and update their profile to link to this university FIRST
+      // This is required so that the RLS policy 'orgs_insert_owner' allows them to insert into organizations.
+      const { error: profileError } = await supabase.from('profiles').update({
+        role: 'org_admin',
+        university_id_fk: targetUniId
+      }).eq('id', user.id)
+
+      if (profileError) throw profileError
+
+      // 2. Create Organization
       const { data: org, error: orgError } = await supabase.from('organizations').insert({
         name: orgForm.name,
         slug,
         department: orgForm.department,
         description: orgForm.description,
         owner_id: user.id,
-        university_id: selectedUni.id
+        university_id: targetUniId
       }).select().single()
 
-      if (orgError) throw orgError
-
-      // 2. Ensure they are org_admin and update their profile to link to this university
-      const { error: profileError } = await supabase.from('profiles').update({
-        role: 'org_admin',
-        university_id_fk: selectedUni.id
-      }).eq('id', user.id)
-
-      if (profileError) throw profileError
+      if (orgError) {
+        // Revert role if org creation fails
+        await supabase.from('profiles').update({ role: 'organiser' }).eq('id', user.id)
+        throw orgError
+      }
 
       toast.success('Organization registered successfully!')
       router.push('/org/dashboard')
@@ -206,7 +225,14 @@ export default function OrgSetupWizard() {
                   </div>
 
                   <div className="pt-4 flex gap-3">
-                    <button type="button" onClick={() => setStep(1)} className="btn-ghost flex-1 justify-center">Back</button>
+                    <button type="button" onClick={async () => {
+                      const { data: p } = await supabase.from('profiles').select('university_id_fk').eq('id', (await supabase.auth.getUser()).data.user?.id).single()
+                      if (!p?.university_id_fk) {
+                        setStep(1)
+                      } else {
+                        toast.error('Your university is permanently assigned by your college admin.')
+                      }
+                    }} className="btn-ghost flex-1 justify-center">Back</button>
                     <button type="submit" disabled={submitting} className="btn-cyber flex-1 justify-center">
                       {submitting ? <Loader2 className="w-5 h-5 animate-spin" /> : <><Plus className="w-5 h-5" /> Launch Dashboard</>}
                     </button>

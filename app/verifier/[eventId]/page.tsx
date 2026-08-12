@@ -43,6 +43,7 @@ export default function VerifierPage() {
   const [admittedCount, setAdmittedCount] = useState(0)
   const [connected, setConnected] = useState(false)
   const [flashGreen, setFlashGreen] = useState(false)
+  const [crBatchPrefix, setCrBatchPrefix] = useState<string | null>(null)
 
   // Audio feedback using Web Audio API
   const playBeep = (success: boolean) => {
@@ -73,8 +74,19 @@ export default function VerifierPage() {
       if (!isAuth) { setAuthChecking(false); return }
 
       const { data: ev } = await supabase
-        .from('events').select('*, organization:organizations(name)').eq('id', eventId).single()
+        .from('events').select('*, organization:organizations(id, name)').eq('id', eventId).single()
       setEvent(ev as Event)
+      
+      let assignedBatchPrefix = null
+      if (ev?.org_id) {
+        const { data: mem } = await supabase.from('org_members_supervisors')
+          .select('cr_batch_prefix')
+          .eq('user_id', user.id)
+          .eq('org_id', ev.org_id)
+          .maybeSingle()
+        if (mem?.cr_batch_prefix) assignedBatchPrefix = mem.cr_batch_prefix
+      }
+      setCrBatchPrefix(assignedBatchPrefix)
 
       // Load currently-pending tickets from DB (for page refresh recovery)
       const { data: existing } = await supabase
@@ -96,7 +108,8 @@ export default function VerifierPage() {
           scanned_at: new Date().toISOString(),
           event_id: eventId,
         }))
-        setPendingTickets(mapped)
+        // Pre-filter on page load as well
+        setPendingTickets(mapped.filter(t => !assignedBatchPrefix || (t.roll_number && t.roll_number.startsWith(assignedBatchPrefix))))
       }
 
       // Count admitted
@@ -111,6 +124,12 @@ export default function VerifierPage() {
         .channel(`gate:${eventId}`)
         .on('broadcast', { event: 'ticket_pending' }, ({ payload }) => {
           const entry = payload as PendingEntry
+          
+          // Smart CR Routing: Only accept if no prefix assigned OR if roll number matches prefix
+          if (assignedBatchPrefix && (!entry.roll_number || !entry.roll_number.startsWith(assignedBatchPrefix))) {
+            return
+          }
+
           setPendingTickets((prev) => {
             // Avoid duplicates
             if (prev.some((p) => p.ticket_id === entry.ticket_id)) return prev
@@ -226,6 +245,11 @@ export default function VerifierPage() {
             <div className="flex items-center gap-2">
               <div className={`w-2 h-2 rounded-full ${connected ? 'bg-cyber-green animate-pulse' : 'bg-white/20'}`} />
               <p className="text-xs font-semibold text-purple-400 uppercase tracking-wider">Station 3 · Verifier</p>
+              {crBatchPrefix && (
+                <span className="ml-2 px-2 py-0.5 rounded text-[10px] font-bold bg-amber-500/20 text-amber-400 border border-amber-500/30">
+                  CR BATCH: {crBatchPrefix}
+                </span>
+              )}
             </div>
             <p className="font-bold text-sm leading-tight">{event?.title || 'Verifier'}</p>
           </div>

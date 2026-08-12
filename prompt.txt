@@ -1,0 +1,62 @@
+**Role & Context:**
+You are an elite Lead Architect and Principal Full-Stack Software Engineer refactoring and scaling an event management platform called **PulsePass** into a production-grade, enterprise multi-tenant SaaS platform. 
+
+Your code must be clean, robust, type-safe (TypeScript), fully responsive (mobile-first), and optimized for massive concurrent traffic. Handle edge cases elegantly, enforce zero-trust security practices, and maintain strict multi-tenant isolation.
+
+---
+
+### **Current Codebase Baseline & Tech Stack:**
+* **Framework:** Next.js 14 (App Router, Server Actions, Route Handlers).
+* **Database & Auth:** Supabase (PostgreSQL, Row Level Security (RLS), Realtime Broadcasts).
+* **Styling & UI:** Tailwind CSS (Cyber Green/Obsidian Dark Theme), Framer Motion, Lucide React.
+* **Libraries:** `Tesseract.js` (OCR), `qrcode.react` (Dynamic QR), `html5-qrcode` (Scanner), `jsPDF` (PDF Export).
+
+---
+
+### **Mission Overview:**
+You are tasked with executing a major architecture upgrade that combines two core pillars:
+1. **Multi-Tenant SaaS Scaling Architecture:** Implement a hierarchical tenant model (`Super Admin` -> `Universities` -> `Colleges` -> `Committees/Clubs`) with dynamic RLS isolation and subdomain routing support.
+2. **The 3-Phase Gate & Security Pipeline:** Implement a database-less OCR verification claiming engine, a real-time gate scanning pipeline, and a VIP/Manual fallback admin portal.
+
+Before writing code, generate an **Implementation Plan Artifact** detailing the database schema migrations, route structure, and component breakdown. Wait for my confirmation on the plan before writing code.
+
+---
+
+### **Core System Specifications:**
+
+#### **Pillar 1: Multi-Tenant Architecture & Governance**
+1. **Hierarchical Database Schema & RLS:**
+   - Create tables for `universities`, `colleges` (belonging to universities), `committees` (belonging to colleges), and `profiles` (scoped with roles: `super_admin`, `university_admin`, `college_admin`, `committee_admin`, `supervisor`, `student`).
+   - Write strict Supabase Row Level Security (RLS) policies ensuring that admins/supervisors can only access data belonging to their assigned scope.
+2. **Subdomain / Tenant Middleware:**
+   - Update `middleware.ts` to detect tenant subdomains (e.g., `cskhpkv.pulsepass.com` or `/u/cskhpkv`) and dynamically rewrite routes to scope requests to the specific university context.
+3. **Super Admin Control Center (`/super-admin`):**
+   - Build a protected global control panel for platform owners to provision new Universities, manage global feature flags, view platform-wide audit logs, and trigger emergency global kill-switches.
+
+---
+
+#### **Pillar 2: The 3-Phase Security & Gate Architecture**
+
+##### **Phase 1: Secure Digital Claiming (Database-less OCR Approach)**
+* **The UI:** Build a mobile-first claim screen where a user enters their Roll Number.
+* **Camera & Blur Detection:** Use the browser's `MediaStream` API to open the camera with continuous autofocus. Implement a client-side JavaScript Laplacian filter to analyze frame sharpness. Keep the "Capture" button disabled until the card frame is crisp and clear.
+* **Client-Side OCR:** Integrate `Tesseract.js`. When captured, scan the ID card image locally for target university/department keywords (e.g., `"Krishi Vishvavidyalaya"` or `"Life Science"`).
+  * **Success:** Instantly issue a dynamic, time-based (TOTP) QR code pass.
+  * **Failure:** Clear the frame, inform the user, and prompt them to retry.
+* **Manual Fallback:** If OCR fails 3 consecutive times, reveal a "Submit for Manual Review" option that pushes the image to an admin approval queue with a `Pending` status.
+
+##### **Phase 2: Real-Time Gate Security Pipeline**
+* **Real-time Sync Engine:** Utilize Supabase Realtime subscriptions so state changes sync across gate devices in milliseconds.
+* **Station 2: The Scanner UI (`/scanner/[eventId]`):** Build a rapid camera-based QR scanner. Scanning a dynamic ticket updates its status to `Pending Verification`. Provide full-screen visual and haptic feedback (bright green flash for valid; bright red for invalid/already scanned).
+* **Station 3: The Verifier UI (`/verifier/[eventId]`):** Build a live-updating dashboard displaying an auto-scrolling grid of selfies/IDs for tickets that just passed Station 2. Provide a prominent "Admit" button that permanently burns the ticket (`checked_in = true`).
+
+##### **Phase 3: VIP & Admin Governance**
+* Build a protected route within the Org Dashboard to manually issue VIP passes that bypass the OCR verification flow.
+* Include a review queue interface for admins to visually inspect and bulk approve/reject "Pending" fallback submissions from Phase 1.
+
+---
+
+### **Execution Protocol:**
+* **Dependencies:** Use terminal commands to install any missing production dependencies (e.g., `@supabase/ssr`, `tesseract.js`, `lucide-react`).
+* **Code Quality:** Ensure all Server Actions and Route Handlers include error handling, try/catch blocks, and type validation.
+* **Visual Verification:** Utilize your integrated browser tool to take high-resolution screenshots of the Phase 1 Camera/OCR UI, the Phase 2 Real-Time Scanner/Verifier UIs, and the Super Admin Portal to confirm production readiness.

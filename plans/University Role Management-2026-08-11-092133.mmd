@@ -1,0 +1,87 @@
+graph TD
+    %% ==========================================
+    %% 1. AUTHENTICATION & ROUTING
+    %% ==========================================
+    subgraph 1. Authentication & Role Router
+        LOGIN[Landing Page /login] --> AUTH(Unified Auth Form)
+        AUTH --> RR{Role Router}
+        RR -->|role: student| STU_DASH[Student Dashboard]
+        RR -->|role: organiser| ORG_DASH[Organiser Dashboard]
+        RR -->|role: college_admin| CA_DASH[College Admin Portal]
+        RR -->|role: university_admin| UA_DASH[Univ Admin Portal]
+        RR -->|role: super_admin| SA_DASH[Super Admin Control]
+    end
+
+    %% ==========================================
+    %% 2. TENANT PROVISIONING & DOUBLE-LOCK APPROVAL
+    %% ==========================================
+    subgraph 2. The Double-Lock Organiser Pipeline
+        SA_DASH -->|Provisions| UA_DASH
+        UA_DASH -->|Defines Batch Scopes & Regex| MASTER_LIST[(University Master List)]
+        CA_DASH -->|Step 1: Generates| INVITE[College Invite Code]
+        STU_DASH -->|Step 2: Submits Code| ROLE_REQ[Role Request: Pending]
+        ROLE_REQ -->|Step 3: Appears in Queue| UA_DASH
+        UA_DASH -->|Step 4: Approves Request| ORG_DASH
+    end
+
+    %% ==========================================
+    %% 3. EVENT CREATION & COMMITTEE DELEGATION
+    %% ==========================================
+    subgraph 3. Event & Committee Engine
+        ORG_DASH -->|Creates| EVENT[Event: Venue, Capacity, Dates]
+        ORG_DASH -->|Appoints via Dropdown| CR_ASSIGN[Assigns CR Verifier]
+        MASTER_LIST -.->|Locks Scope Choice| CR_ASSIGN
+        
+        ORG_DASH -->|Creates| COM[Committees]
+        ORG_DASH -->|Appoints| COM_HEAD[Committee Head]
+        COM_HEAD -->|Generates 4-Digit Code| JOIN_CODE[Committee Join Code]
+        
+        COM --> FIN_DB[(Financial Ledger)]
+        COM --> LOG_DB[(Logistics Tracker)]
+    end
+
+    %% ==========================================
+    %% 4. STUDENT DISCOVERY & TICKET CLAIMING
+    %% ==========================================
+    subgraph 4. Student Journey & Smart Routing
+        STU_DASH -->|Browses Feed| EVENT
+        STU_DASH -->|Enters 4-Digit Code| JOIN_CODE
+        JOIN_CODE -->|Becomes Member| COM
+        
+        EVENT -->|In-Context Apply| VOL_APP[Volunteer Application]
+        VOL_APP -->|Approved by Organiser| VOL_ROLE(Scanner/Verifier Role)
+        
+        STU_DASH -->|Clicks Claim Pass| CLAIM[Submits ID Selfie + Roll Number]
+        CLAIM -->|Matches Regex/Scope| CR_ROUTING{CR Smart Routing}
+        CR_ASSIGN -.->|Controls Queue| CR_ROUTING
+        CR_ROUTING -->|CR Approves| TIX_GEN[Dynamic QR Pass Generated]
+        TIX_GEN -->|Stores in| WALLET[Digital Wallet /my-passes]
+    end
+
+    %% ==========================================
+    %% 5. DAY-OF GATE PIPELINE (THE VENUE)
+    %% ==========================================
+    subgraph 5. The Real-Time Gate Pipeline
+        WALLET -->|Presents QR| GATE1[Station 1: Scanner Volunteer]
+        VOL_ROLE -.->|Provides Access To| GATE1
+        
+        GATE1 -->|Scans QR| SOFT_LOCK[60-Second Soft Lock]
+        SOFT_LOCK --> TIX_DB[(DB: status = pending_verification)]
+        
+        TIX_DB -.->|Supabase WebSockets| GATE2[Station 2: Verifier Volunteer]
+        GATE2 -->|Live Selfie Pops Up| ADMIT{Click: Admit}
+        ADMIT -->|Burns Ticket| SUCCESS[Student Enters Fest]
+    end
+
+    %% ==========================================
+    %% STYLING & CLASSES
+    %% ==========================================
+    classDef actor fill:#166534,stroke:#14532d,color:white,stroke-width:2px;
+    classDef system fill:#1e293b,stroke:#334155,color:white,stroke-width:2px;
+    classDef highlight fill:#ea580c,stroke:#9a3412,color:white,stroke-width:3px;
+    classDef auth fill:#374151,stroke:#1f2937,color:white,stroke-width:2px;
+
+    class STU_DASH,ORG_DASH,CA_DASH,UA_DASH,SA_DASH,GATE1,GATE2 actor;
+    class EVENT,COM,FIN_DB,LOG_DB,MASTER_LIST,TIX_DB system;
+    class TIX_GEN,WALLET,SUCCESS,ADMIT highlight;
+    class LOGIN,AUTH,RR auth;

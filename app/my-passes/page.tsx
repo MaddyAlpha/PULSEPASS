@@ -2,11 +2,12 @@
 
 import { useState, useEffect } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
-import { Ticket, Calendar, Zap, Clock, Search, Filter } from 'lucide-react'
+import { Ticket, Calendar, Zap, Clock, Search, Filter, User } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 import type { Ticket as TicketType, Event, Organization, Profile } from '@/lib/types'
 import TicketPass from '@/components/passes/TicketPass'
 import Navbar from '@/components/ui/Navbar'
+import Link from 'next/link'
 
 interface TicketWithRelations extends TicketType {
   event: Event & { organization: Organization }
@@ -16,6 +17,7 @@ export default function MyPassesPage() {
   const supabase = createClient()
   const [tickets, setTickets] = useState<TicketWithRelations[]>([])
   const [profile, setProfile] = useState<Profile | null>(null)
+  const [universitySlug, setUniversitySlug] = useState<string | null>(null)
   const [loading, setLoading] = useState(true)
   const [selectedTicket, setSelectedTicket] = useState<TicketWithRelations | null>(null)
   const [filter, setFilter] = useState<'all' | 'valid' | 'checked_in' | 'expired'>('all')
@@ -36,6 +38,13 @@ export default function MyPassesPage() {
 
       setProfile(profileData)
       setTickets((ticketsData || []) as TicketWithRelations[])
+
+      // Fetch university slug for event discovery link
+      if (profileData?.university_id_fk) {
+        const { data: uni } = await supabase.from('universities').select('slug').eq('id', profileData.university_id_fk).single()
+        if (uni?.slug) setUniversitySlug(uni.slug)
+      }
+
       setLoading(false)
     }
     load()
@@ -59,11 +68,26 @@ export default function MyPassesPage() {
         <motion.div
           initial={{ opacity: 0, y: 16 }}
           animate={{ opacity: 1, y: 0 }}
-          className="py-10">
-          <h1 className="text-3xl md:text-4xl font-black mb-2">
-            My <span className="text-cyber-green">Passes</span>
-          </h1>
-          <p className="text-white/50">Your digital ticket wallet — all passes in one place.</p>
+          className="py-10 flex flex-col md:flex-row md:items-end justify-between gap-4">
+          <div>
+            <h1 className="text-3xl md:text-4xl font-black mb-2">
+              My <span className="text-cyber-green">Passes</span>
+            </h1>
+            <p className="text-white/50">Your digital ticket wallet — all passes in one place.</p>
+          </div>
+          <div className="flex items-center gap-3">
+            <Link
+              href={`/profile`}
+              className="flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-semibold transition-all"
+              style={{ background: 'rgba(167,139,250,0.1)', color: '#A78BFA', border: '1px solid rgba(167,139,250,0.25)' }}>
+              <User className="w-4 h-4" /> My Profile &amp; Committees
+            </Link>
+            <Link
+              href={universitySlug ? `/u/${universitySlug}/events` : '/profile'}
+              className="btn-cyber text-sm">
+              <Calendar className="w-4 h-4" /> Browse Events
+            </Link>
+          </div>
         </motion.div>
 
         {/* Stats */}

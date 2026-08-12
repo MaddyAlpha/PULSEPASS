@@ -1,0 +1,36 @@
+# PulsePass — Web App Functioning & Framework Overview
+
+## Overview
+PulsePass is a production-grade, multi-tenant SaaS platform for campus event management. It serves as a campus event and VIP pass engine that allows organizations to create and manage events, and students to discover events and claim passes. It includes QR code-based ticketing and scanning functionalities.
+
+## Technology Stack & Framework
+The application is built upon a modern, full-stack JavaScript ecosystem:
+- **Framework:** Next.js 14 (React 18) utilizing the App Router, Server Actions, and Route Handlers.
+- **Backend & Database:** Supabase, which provides PostgreSQL, Row Level Security (RLS), and Authentication.
+- **Styling:** Tailwind CSS with a custom Cyber Green/Obsidian dark theme.
+- **Animations:** Framer Motion for page and component-level animations.
+- **QR Code Management:** 
+  - `qrcode.react` for dynamic QR ticket generation.
+  - `html5-qrcode` for the mobile camera QR scanner used at event gates.
+- **PDF Generation:** `jsPDF` for enabling users to download PDF versions of their tickets.
+- **Icons:** Lucide React for consistent UI iconography.
+- **Language:** TypeScript for type safety across the frontend and backend interactions.
+
+## User Roles & Access Hierarchy
+The platform is multi-tenant and supports different user roles, enforced via Supabase Auth and Row Level Security:
+1. **Student:** Can browse the public event feed, claim passes for events, and view their claimed passes in a digital wallet.
+2. **Org Admin:** Has full access to the organizational command center. They can create events and hire/assign supervisors.
+3. **Supervisor:** Acts as a gatekeeper. Has access to the QR scanner interface to check-in attendees at events.
+4. **Super Admin:** Has global visibility over all data across the platform.
+
+## Key Workflows & Functionality
+- **Event Discovery & Ticketing:** Users land on a feed of events (`/events`). They can view event details (`/events/[id]`) and claim a pass. The claiming process is handled via atomic API routes (`/api/tickets`).
+- **Digital Wallet:** Students can access their claimed tickets at `/my-passes`, which displays dynamic QR codes for check-in and allows PDF downloads.
+- **Command Center:** Organization admins manage their events and view analytics via the dashboard (`/org/dashboard`).
+- **Gatekeeper Scanning:** Supervisors access a specific scanner route (`/scanner/[eventId]`) to scan student QR codes using the device camera (`html5-qrcode`). This securely processes check-ins via the `/api/checkin` route.
+
+## System Architecture
+- **Frontend (app/):** Contains all the Next.js App Router pages and API routes.
+  - API routes handle server-side logic securely (e.g., atomic ticket claiming and check-in processing).
+- **Backend Integration (lib/supabase/):** Contains Supabase clients configured for browser, server components, and middleware to ensure seamless authentication and data fetching.
+- **Database (supabase/):** Defines the PostgreSQL schema, functions, and Row Level Security policies to ensure tenant isolation and secure access.

@@ -36,6 +36,7 @@ export default function SuperAdminPage() {
   const [killSwitchTarget, setKillSwitchTarget] = useState<University | null>(null)
   const [actionLoading, setActionLoading] = useState<string | null>(null)
   const [auditSearch, setAuditSearch] = useState('')
+  const [uniInviteCodes, setUniInviteCodes] = useState<Record<string, any[]>>({})
 
   // College management
   const [expandedColleges, setExpandedColleges] = useState<string | null>(null) // university id
@@ -81,6 +82,17 @@ export default function SuperAdminPage() {
 
       if (univRes.data) setUniversities(univRes.data as University[])
       if (auditRes.data) setAuditLogs(auditRes.data as AuditLog[])
+
+      // Fetch invite codes for university_admins
+      const { data: codes } = await supabase.from('admin_invite_codes').select('*').eq('role', 'university_admin').order('created_at', { ascending: false })
+      if (codes) {
+        const codesByUni = codes.reduce((acc, code) => {
+          if (!acc[code.university_id]) acc[code.university_id] = []
+          acc[code.university_id].push(code)
+          return acc
+        }, {} as Record<string, any[]>)
+        setUniInviteCodes(codesByUni)
+      }
 
       const [uCount, eCount, tCount, cCount, auCount] = statsRes
       setStats({
@@ -154,11 +166,31 @@ export default function SuperAdminPage() {
   const handleLoadColleges = async (uniId: string) => {
     if (expandedColleges === uniId) { setExpandedColleges(null); return }
     setExpandedColleges(uniId)
-    if (!colleges[uniId]) {
-      const { data, error } = await supabase.from('colleges').select('id, name, slug, admins:profiles!college_id(id, email, full_name, role)').eq('university_id', uniId).order('name')
-      if (error) console.error('Fetch colleges error:', error)
-      setColleges(prev => ({ ...prev, [uniId]: data || [] }))
+    // Always re-fetch when expanding
+    const { data, error } = await supabase
+      .from('colleges')
+      .select('id, name, slug')
+      .eq('university_id', uniId)
+      .order('name')
+    if (error) console.error('Fetch colleges error:', error)
+    
+    const collegesList = data || []
+    
+    // Fetch admins separately to avoid PostgREST relationship RLS errors
+    if (collegesList.length > 0) {
+      const collegeIds = collegesList.map(c => c.id)
+      const { data: admins } = await supabase
+        .from('profiles')
+        .select('id, email, full_name, role, college_id')
+        .in('college_id', collegeIds)
+        .eq('role', 'college_admin')
+        
+      collegesList.forEach(c => {
+        (c as any).admins = admins?.filter(a => a.college_id === c.id) || []
+      })
     }
+    
+    setColleges(prev => ({ ...prev, [uniId]: collegesList as any }))
   }
 
   const handleAddCollege = async (uniId: string) => {
@@ -168,8 +200,29 @@ export default function SuperAdminPage() {
       const slug = newCollegeName.toLowerCase().replace(/\s+/g, '-').replace(/[^a-z0-9-]/g, '')
       const { error } = await supabase.from('colleges').insert({ university_id: uniId, name: newCollegeName.trim(), slug })
       if (error) throw error
-      const { data } = await supabase.from('colleges').select('id, name, slug, admins:profiles!college_id(id, email, full_name, role)').eq('university_id', uniId).order('name')
-      setColleges(prev => ({ ...prev, [uniId]: data || [] }))
+      // Re-fetch colleges for this university
+      const { data, error: fetchErr } = await supabase
+        .from('colleges')
+        .select('id, name, slug')
+        .eq('university_id', uniId)
+        .order('name')
+      if (fetchErr) console.error('Re-fetch error:', fetchErr)
+      
+      const collegesList = data || []
+      if (collegesList.length > 0) {
+        const collegeIds = collegesList.map(c => c.id)
+        const { data: admins } = await supabase
+          .from('profiles')
+          .select('id, email, full_name, role, college_id')
+          .in('college_id', collegeIds)
+          .eq('role', 'college_admin')
+          
+        collegesList.forEach(c => {
+          (c as any).admins = admins?.filter(a => a.college_id === c.id) || []
+        })
+      }
+      
+      setColleges(prev => ({ ...prev, [uniId]: collegesList as any }))
       setNewCollegeName('')
       toast.success('College added!')
     } catch (err: any) {
@@ -214,6 +267,29 @@ export default function SuperAdminPage() {
     }
   }
 
+  const handleGenerateUniCode = async (universityId: string) => {
+    setActionLoading(`generate_${universityId}`)
+    try {
+      const { data: user } = await supabase.auth.getUser()
+      if (!user.user) throw new Error('Not logged in')
+      
+      const code = Math.random().toString(36).substring(2, 8).toUpperCase()
+      const { error } = await supabase.from('admin_invite_codes').insert({
+        code,
+        role: 'university_admin',
+        university_id: universityId,
+        created_by: user.user.id
+      })
+      if (error) throw error
+      toast.success('Generated one-time use code for University Admin')
+      await fetchData()
+    } catch (err: any) {
+      toast.error(err.message || 'Failed to generate code')
+    } finally {
+      setActionLoading(null)
+    }
+  }
+
   const handleRevokeAdmin = async (userId: string) => {
     if (!confirm('Are you sure you want to revoke admin access for this user? They will be downgraded to student.')) return
     setActionLoading(userId)
@@ -231,8 +307,21 @@ export default function SuperAdminPage() {
       // But we can just clear expandedColleges to force refetch, or let the user click again.
       // For simplicity we will re-fetch the expanded college if any.
       if (expandedColleges) {
-        const { data } = await supabase.from('colleges').select('id, name, slug, admins:profiles!college_id(id, email, full_name, role)').eq('university_id', expandedColleges).order('name')
-        setColleges(prev => ({ ...prev, [expandedColleges]: data || [] }))
+        const { data } = await supabase.from('colleges').select('id, name, slug').eq('university_id', expandedColleges).order('name')
+        const collegesList = data || []
+        if (collegesList.length > 0) {
+          const collegeIds = collegesList.map(c => c.id)
+          const { data: admins } = await supabase
+            .from('profiles')
+            .select('id, email, full_name, role, college_id')
+            .in('college_id', collegeIds)
+            .eq('role', 'college_admin')
+            
+          collegesList.forEach(c => {
+            (c as any).admins = admins?.filter(a => a.college_id === c.id) || []
+          })
+        }
+        setColleges(prev => ({ ...prev, [expandedColleges]: collegesList as any }))
       }
     } catch (err: any) {
       toast.error(err.message || 'Failed to revoke admin')
@@ -503,7 +592,7 @@ export default function SuperAdminPage() {
                     </div>
                     {/* Assign University Admin */}
                     <div className="mt-4 pt-4 border-t border-white/[0.06]">
-                      <p className="text-xs text-white/40 mb-2 font-medium">Assign University Admin</p>
+                      <p className="text-xs text-white/40 mb-2 font-medium">Assign University Admin (Or Generate Invite Code)</p>
                       <div className="flex gap-2">
                         <input
                           type="email"
@@ -519,7 +608,30 @@ export default function SuperAdminPage() {
                           style={{ background: '#00FF66' }}>
                           {assigningLoading === u.id ? <Loader2 className="w-4 h-4 animate-spin" /> : <Shield className="w-4 h-4" />} Assign
                         </button>
+                        <button
+                          onClick={() => handleGenerateUniCode(u.id)}
+                          disabled={actionLoading === `generate_${u.id}`}
+                          className="flex items-center gap-1.5 px-4 py-2 rounded-lg text-sm font-semibold text-amber-400 border border-amber-500/30 hover:bg-amber-500/10 transition-all disabled:opacity-40">
+                          {actionLoading === `generate_${u.id}` ? <Loader2 className="w-4 h-4 animate-spin" /> : <RefreshCw className="w-4 h-4" />} Gen Code
+                        </button>
                       </div>
+                      
+                      {/* List Invite Codes */}
+                      {uniInviteCodes[u.id] && uniInviteCodes[u.id].length > 0 && (
+                        <div className="mt-3 space-y-2">
+                          <p className="text-[10px] uppercase font-bold text-white/30 tracking-wider">One-Time Invite Codes</p>
+                          {uniInviteCodes[u.id].map(code => (
+                            <div key={code.id} className="flex items-center justify-between p-2 rounded-lg bg-white/5 border border-white/10">
+                              <span className={`font-mono text-sm font-bold tracking-wider ${code.is_used ? 'text-white/30 line-through' : 'text-amber-400'}`}>
+                                {code.code}
+                              </span>
+                              <span className={`text-[10px] px-2 py-0.5 rounded-full font-bold ${code.is_used ? 'bg-white/10 text-white/40' : 'bg-cyber-green/10 text-cyber-green'}`}>
+                                {code.is_used ? 'USED' : 'ACTIVE'}
+                              </span>
+                            </div>
+                          ))}
+                        </div>
+                      )}
                       
                       {/* Assigned University Admins */}
                       {u.admins && u.admins.filter(a => a.role === 'university_admin').length > 0 && (

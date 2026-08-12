@@ -4,12 +4,13 @@ import { useState, useEffect } from 'react'
 import { motion } from 'framer-motion'
 import {
   Building2, CheckCircle2, XCircle, Loader2, Users,
-  RefreshCw, LogOut, Clock, GraduationCap, Plus, Mail
+  RefreshCw, LogOut, Clock, GraduationCap, Plus, Mail, Trash2
 } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 import { useRouter } from 'next/navigation'
 import toast from 'react-hot-toast'
 import Link from 'next/link'
+import VisualRegexBuilder, { RegexBlock } from '@/components/ui/VisualRegexBuilder'
 
 type JoinRequest = {
   id: string
@@ -22,6 +23,24 @@ type JoinRequest = {
   college: { name: string } | null
 }
 
+type RoleRequest = {
+  id: string
+  user_id: string
+  college_id: string
+  university_id: string
+  invite_code: string
+  status: string
+  created_at: string
+  profile: { full_name: string | null; email: string; roll_number: string | null }
+  college: { name: string }
+}
+
+type BatchCode = {
+  id: string
+  batch_prefix: string
+  created_at: string
+}
+
 export default function UniversityAdminPage() {
   const supabase = createClient()
   const router = useRouter()
@@ -32,11 +51,21 @@ export default function UniversityAdminPage() {
   const [actionLoading, setActionLoading] = useState<string | null>(null)
   const [rejectNote, setRejectNote] = useState<{ id: string; note: string } | null>(null)
 
-  const [tab, setTab] = useState<'requests' | 'colleges'>('requests')
+  const [tab, setTab] = useState<'requests' | 'colleges' | 'organiser_requests' | 'batch_codes' | 'security'>('requests')
   const [colleges, setColleges] = useState<{ id: string; name: string; slug: string; admins?: { id: string; email: string; full_name: string | null; role: string }[] }[]>([])
+  const [roleRequests, setRoleRequests] = useState<RoleRequest[]>([])
+  const [batchCodes, setBatchCodes] = useState<BatchCode[]>([])
+  const [newBatchPrefix, setNewBatchPrefix] = useState('')
+  
+  // Security / Regex state
+  const [uniRegexBlocks, setUniRegexBlocks] = useState<RegexBlock[]>([])
+  const [uniRegexStr, setUniRegexStr] = useState('')
+  const [uniRegexHint, setUniRegexHint] = useState('')
+  
   const [newCollegeName, setNewCollegeName] = useState('')
   const [addingCollege, setAddingCollege] = useState(false)
   const [assignCollegeEmail, setAssignCollegeEmail] = useState<Record<string, string>>({})
+  const [collegeInviteCodes, setCollegeInviteCodes] = useState<Record<string, any[]>>({})
 
   const fetchData = async () => {
     const { data: { user } } = await supabase.auth.getUser()
@@ -44,14 +73,17 @@ export default function UniversityAdminPage() {
 
     const { data: profile } = await supabase.from('profiles').select('*').eq('id', user.id).single()
     if (!profile || !['university_admin', 'super_admin'].includes(profile.role)) {
-      router.push('/events')
+      router.push('/auth')
       return
     }
 
     // Get university details
     if (profile.university_id_fk) {
-      const { data: uni } = await supabase.from('universities').select('name').eq('id', profile.university_id_fk).single()
+      const { data: uni } = await supabase.from('universities').select('name, roll_number_regex, roll_number_format_hint, roll_number_regex_blocks').eq('id', profile.university_id_fk).single()
       setUniName(uni?.name || 'Your University')
+      if (uni?.roll_number_regex_blocks) setUniRegexBlocks(uni.roll_number_regex_blocks as unknown as RegexBlock[])
+      if (uni?.roll_number_regex) setUniRegexStr(uni.roll_number_regex)
+      if (uni?.roll_number_format_hint) setUniRegexHint(uni.roll_number_format_hint)
     } else if (profile.role === 'super_admin') {
       setUniName('All Universities')
     }
@@ -70,9 +102,61 @@ export default function UniversityAdminPage() {
       query = query.eq('university_id', profile.university_id_fk)
       setUniId(profile.university_id_fk)
       // Fetch colleges
-      const { data: cols, error: colsErr } = await supabase.from('colleges').select('id, name, slug, admins:profiles!college_id(id, email, full_name, role)').eq('university_id', profile.university_id_fk).order('name')
+      const { data: cols, error: colsErr } = await supabase.from('colleges').select('id, name, slug').eq('university_id', profile.university_id_fk).order('name')
       if (colsErr) console.error('Fetch colleges error:', colsErr.message || colsErr)
-      setColleges(cols || [])
+      
+      const collegesList = cols || []
+      
+      // Fetch admins separately to avoid PostgREST relationship RLS errors
+      if (collegesList.length > 0) {
+        const collegeIds = collegesList.map(c => c.id)
+        const { data: admins } = await supabase
+          .from('profiles')
+          .select('id, email, full_name, role, college_id')
+          .in('college_id', collegeIds)
+          .eq('role', 'college_admin')
+          
+        collegesList.forEach(c => {
+          (c as any).admins = admins?.filter(a => a.college_id === c.id) || []
+        })
+      }
+      
+      setColleges(collegesList as any)
+
+      // Fetch role requests (organiser applications)
+      const { data: roles } = await supabase
+        .from('role_requests')
+        .select(`
+          id, user_id, college_id, university_id, invite_code, status, created_at,
+          profile:profiles!user_id(full_name, email, roll_number),
+          college:colleges(name)
+        `)
+        .eq('university_id', profile.university_id_fk)
+        .order('created_at', { ascending: false })
+      setRoleRequests((roles as unknown as RoleRequest[]) || [])
+      
+      // Fetch batch codes
+      const { data: batches } = await supabase
+        .from('university_batch_codes')
+        .select('id, batch_prefix, created_at')
+        .eq('university_id', profile.university_id_fk)
+        .order('batch_prefix')
+      setBatchCodes(batches || [])
+
+      // Fetch one-time codes
+      const { data: codes } = await supabase.from('admin_invite_codes')
+        .select('*')
+        .eq('university_id', profile.university_id_fk)
+        .eq('role', 'college_admin')
+        .order('created_at', { ascending: false })
+      if (codes) {
+        const codesByCollege = codes.reduce((acc, code) => {
+          if (!acc[code.college_id]) acc[code.college_id] = []
+          acc[code.college_id].push(code)
+          return acc
+        }, {} as Record<string, any[]>)
+        setCollegeInviteCodes(codesByCollege)
+      }
     }
 
     const { data } = await query
@@ -87,8 +171,16 @@ export default function UniversityAdminPage() {
       const slug = newCollegeName.toLowerCase().replace(/\s+/g, '-').replace(/[^a-z0-9-]/g, '')
       const { error } = await supabase.from('colleges').insert({ university_id: uniId, name: newCollegeName.trim(), slug })
       if (error) throw error
-      const { data } = await supabase.from('colleges').select('id, name, slug, admins:profiles!college_id(id, email, full_name, role)').eq('university_id', uniId).order('name')
-      setColleges(data || [])
+      const { data: cols } = await supabase.from('colleges').select('id, name, slug').eq('university_id', uniId).order('name')
+      const collegesList = cols || []
+      if (collegesList.length > 0) {
+        const collegeIds = collegesList.map(c => c.id)
+        const { data: admins } = await supabase.from('profiles').select('id, email, full_name, role, college_id').in('college_id', collegeIds).eq('role', 'college_admin')
+        collegesList.forEach(c => {
+          (c as any).admins = admins?.filter(a => a.college_id === c.id) || []
+        })
+      }
+      setColleges(collegesList as any)
       setNewCollegeName('')
       toast.success('College added!')
     } catch (err: any) {
@@ -117,6 +209,30 @@ export default function UniversityAdminPage() {
       setAssignCollegeEmail(prev => ({ ...prev, [collegeId]: '' }))
     } catch (err: any) {
       toast.error(err.message || 'Failed to assign admin')
+    } finally {
+      setActionLoading(null)
+    }
+  }
+
+  const handleGenerateCollegeAdminCode = async (collegeId: string) => {
+    setActionLoading(`generate_${collegeId}`)
+    try {
+      const { data: user } = await supabase.auth.getUser()
+      if (!user.user) throw new Error('Not logged in')
+      
+      const code = Math.random().toString(36).substring(2, 8).toUpperCase()
+      const { error } = await supabase.from('admin_invite_codes').insert({
+        code,
+        role: 'college_admin',
+        university_id: uniId,
+        college_id: collegeId,
+        created_by: user.user.id
+      })
+      if (error) throw error
+      toast.success('Generated one-time use code for College Admin')
+      await fetchData()
+    } catch (err: any) {
+      toast.error(err.message || 'Failed to generate code')
     } finally {
       setActionLoading(null)
     }
@@ -191,6 +307,108 @@ export default function UniversityAdminPage() {
     }
   }
 
+  const handleApproveRole = async (req: RoleRequest) => {
+    setActionLoading(req.id)
+    try {
+      // 1. Update request status
+      const { error: reqError } = await supabase
+        .from('role_requests')
+        .update({ status: 'approved', reviewed_by: (await supabase.auth.getUser()).data.user?.id, reviewed_at: new Date().toISOString() })
+        .eq('id', req.id)
+      if (reqError) throw reqError
+
+      // 2. Elevate user to organiser
+      const { error: profError } = await supabase
+        .from('profiles')
+        .update({ role: 'organiser', college_id: req.college_id })
+        .eq('id', req.user_id)
+      if (profError) throw profError
+
+      toast.success('Organiser role granted!')
+      fetchData()
+    } catch (err: any) {
+      toast.error(err.message || 'Failed to approve role')
+    } finally {
+      setActionLoading(null)
+    }
+  }
+
+  const handleRejectRole = async (reqId: string) => {
+    setActionLoading(reqId)
+    try {
+      await supabase
+        .from('role_requests')
+        .update({ status: 'rejected', reviewed_by: (await supabase.auth.getUser()).data.user?.id, reviewed_at: new Date().toISOString() })
+        .eq('id', reqId)
+      toast.success('Organiser request rejected.')
+      fetchData()
+    } catch (err: any) {
+      toast.error(err.message || 'Failed to reject role')
+    } finally {
+      setActionLoading(null)
+    }
+  }
+
+  const handleAddBatchCode = async (e: React.FormEvent) => {
+    e.preventDefault()
+    if (!uniId) {
+      toast.error('You must be logged in as a University Admin to add batch codes.')
+      return
+    }
+    if (!newBatchPrefix.trim()) return
+    setActionLoading('add_batch')
+    try {
+      const { error } = await supabase.from('university_batch_codes').insert({
+        university_id: uniId,
+        batch_prefix: newBatchPrefix.trim().toUpperCase(),
+        created_by: (await supabase.auth.getUser()).data.user?.id
+      })
+      if (error) throw error
+      toast.success('Batch code added!')
+      setNewBatchPrefix('')
+      fetchData()
+    } catch (err: any) {
+      toast.error(err.message || 'Failed to add batch code')
+    } finally {
+      setActionLoading(null)
+    }
+  }
+
+  const handleDeleteBatchCode = async (id: string) => {
+    setActionLoading(id)
+    try {
+      const { error } = await supabase.from('university_batch_codes').delete().eq('id', id)
+      if (error) throw error
+      toast.success('Batch code removed')
+      fetchData()
+    } catch (err: any) {
+      toast.error(err.message || 'Failed to remove batch code')
+    } finally {
+      setActionLoading(null)
+    }
+  }
+
+  const handleSaveRegex = async () => {
+    if (!uniId) {
+      toast.error('You must be logged in as a University Admin to save the Regex format.')
+      return
+    }
+    setActionLoading('save_regex')
+    try {
+      const { error } = await supabase.from('universities').update({
+        roll_number_regex: uniRegexStr,
+        roll_number_format_hint: uniRegexHint,
+        roll_number_regex_blocks: uniRegexBlocks
+      }).eq('id', uniId)
+      if (error) throw error
+      toast.success('Roll Number format saved!')
+    } catch (err: any) {
+      toast.error(err.message || 'Failed to save format')
+    } finally {
+      setActionLoading(null)
+    }
+  }
+
   if (loading) return (
     <div className="min-h-screen bg-obsidian-950 flex items-center justify-center">
       <Loader2 className="w-8 h-8 text-cyber-green animate-spin" />
@@ -220,7 +438,7 @@ export default function UniversityAdminPage() {
             <button onClick={fetchData} className="p-2 rounded-lg text-white/40 hover:text-white hover:bg-white/5 transition-all">
               <RefreshCw className="w-4 h-4" />
             </button>
-            <Link href="/events" className="flex items-center gap-2 px-3 py-2 rounded-lg text-white/40 hover:text-white hover:bg-white/5 transition-all text-sm">
+            <Link href="/my-passes" className="flex items-center gap-2 px-3 py-2 rounded-lg text-white/40 hover:text-white hover:bg-white/5 transition-all text-sm">
               <LogOut className="w-4 h-4" /> Back to App
             </Link>
           </div>
@@ -230,6 +448,18 @@ export default function UniversityAdminPage() {
           <button onClick={() => setTab('requests')}
             className={`px-4 py-2 text-sm font-bold rounded-lg transition-all ${tab === 'requests' ? 'bg-cyber-green/10 text-cyber-green border border-cyber-green/20' : 'text-white/40 hover:bg-white/5'}`}>
             Join Requests
+          </button>
+          <button onClick={() => setTab('organiser_requests')}
+            className={`px-4 py-2 text-sm font-bold rounded-lg transition-all ${tab === 'organiser_requests' ? 'bg-cyber-green/10 text-cyber-green border border-cyber-green/20' : 'text-white/40 hover:bg-white/5'}`}>
+            Organiser Applications
+          </button>
+          <button onClick={() => setTab('batch_codes')}
+            className={`px-4 py-2 text-sm font-bold rounded-lg transition-all ${tab === 'batch_codes' ? 'bg-cyber-green/10 text-cyber-green border border-cyber-green/20' : 'text-white/40 hover:bg-white/5'}`}>
+            Batch Codes
+          </button>
+          <button onClick={() => setTab('security')}
+            className={`px-4 py-2 text-sm font-bold rounded-lg transition-all ${tab === 'security' ? 'bg-cyber-green/10 text-cyber-green border border-cyber-green/20' : 'text-white/40 hover:bg-white/5'}`}>
+            Security
           </button>
           <button onClick={() => setTab('colleges')}
             className={`px-4 py-2 text-sm font-bold rounded-lg transition-all ${tab === 'colleges' ? 'bg-cyber-green/10 text-cyber-green border border-cyber-green/20' : 'text-white/40 hover:bg-white/5'}`}>
@@ -357,6 +587,84 @@ export default function UniversityAdminPage() {
         </div>
         )}
 
+        {tab === 'organiser_requests' && (
+          <div className="space-y-6">
+            <div className="flex items-center gap-3 mb-6">
+              <h2 className="text-2xl font-black">Organiser Applications</h2>
+              {roleRequests.filter(r => r.status === 'pending').length > 0 && (
+                <span className="px-2.5 py-1 rounded-full text-xs font-bold bg-amber-400/20 text-amber-400 border border-amber-400/30">
+                  {roleRequests.filter(r => r.status === 'pending').length} Pending
+                </span>
+              )}
+            </div>
+
+            {roleRequests.filter(r => r.status === 'pending').length === 0 ? (
+              <div className="rounded-2xl border border-white/[0.06] p-12 text-center" style={{ background: 'rgba(255,255,255,0.02)' }}>
+                <CheckCircle2 className="w-10 h-10 text-cyber-green/30 mx-auto mb-3" />
+                <p className="text-white/40">No pending organiser applications.</p>
+              </div>
+            ) : (
+              <div className="space-y-4">
+                {roleRequests.filter(r => r.status === 'pending').map(req => (
+                  <div key={req.id} className="rounded-2xl border border-amber-500/20 p-5 flex items-center justify-between" style={{ background: 'rgba(245,158,11,0.03)' }}>
+                    <div>
+                      <div className="flex items-center gap-2 mb-1">
+                        <Users className="w-4 h-4 text-amber-400" />
+                        <p className="font-bold text-lg">{req.profile?.full_name}</p>
+                        <span className="text-xs text-white/40 font-mono">({req.profile?.roll_number})</span>
+                      </div>
+                      <p className="text-sm text-white/50">{req.profile?.email}</p>
+                      <p className="text-xs text-cyber-green mt-2 font-mono bg-cyber-green/10 px-2 py-0.5 rounded-md inline-block border border-cyber-green/20">
+                        College: {req.college?.name}
+                      </p>
+                    </div>
+                    <div className="flex items-center gap-2 shrink-0">
+                      <button
+                        onClick={() => handleRejectRole(req.id)}
+                        disabled={actionLoading === req.id}
+                        className="px-4 py-2 rounded-xl text-sm font-semibold border border-red-500/30 text-red-400 hover:bg-red-500/10 transition-all disabled:opacity-50">
+                        Reject
+                      </button>
+                      <button
+                        onClick={() => handleApproveRole(req)}
+                        disabled={actionLoading === req.id}
+                        className="flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-bold text-black transition-all disabled:opacity-50"
+                        style={{ background: '#00FF66' }}>
+                        {actionLoading === req.id ? <Loader2 className="w-4 h-4 animate-spin" /> : 'Approve & Elevate'}
+                      </button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+
+            {/* Past Decisions for Roles */}
+            {roleRequests.filter(r => r.status !== 'pending').length > 0 && (
+              <div className="mt-10">
+                <h3 className="text-lg font-bold text-white/50 mb-4">Past Decisions</h3>
+                <div className="space-y-3">
+                  {roleRequests.filter(r => r.status !== 'pending').map(req => (
+                    <div key={req.id} className="rounded-xl border border-white/[0.06] px-5 py-4 flex items-center justify-between"
+                      style={{ background: 'rgba(255,255,255,0.02)' }}>
+                      <div>
+                        <p className="font-semibold">{req.profile?.full_name} <span className="text-white/40 text-xs ml-1 font-mono">({req.profile?.roll_number})</span></p>
+                        <p className="text-xs text-white/40 mt-0.5">{req.college?.name} · {new Date(req.created_at).toLocaleDateString()}</p>
+                      </div>
+                      <span className={`text-xs px-3 py-1 rounded-full font-bold border ${
+                        req.status === 'approved'
+                          ? 'text-cyber-green bg-cyber-green/10 border-cyber-green/30'
+                          : 'text-red-400 bg-red-400/10 border-red-400/30'
+                      }`}>
+                        {req.status.toUpperCase()}
+                      </span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+          </div>
+        )}
+
         {tab === 'colleges' && (
           <div>
             <div className="flex items-center justify-between mb-6">
@@ -393,7 +701,7 @@ export default function UniversityAdminPage() {
                   </div>
                   
                   <div className="pt-4 border-t border-white/[0.06]">
-                    <p className="text-xs text-white/40 font-medium mb-2 uppercase tracking-wider">Assign College Admin</p>
+                    <p className="text-xs text-white/40 font-medium mb-2 uppercase tracking-wider">Assign College Admin (Or Gen Code)</p>
                     <div className="flex gap-2">
                       <div className="relative flex-1">
                         <Mail className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-white/30" />
@@ -412,7 +720,31 @@ export default function UniversityAdminPage() {
                         style={{ background: '#00FF66' }}>
                         {actionLoading === c.id ? <Loader2 className="w-4 h-4 animate-spin" /> : 'Assign'}
                       </button>
+                      <button
+                        onClick={() => handleGenerateCollegeAdminCode(c.id)}
+                        disabled={actionLoading === `generate_${c.id}`}
+                        className="flex items-center gap-1.5 px-3 py-2 rounded-lg text-sm font-semibold text-amber-400 border border-amber-500/30 hover:bg-amber-500/10 transition-all disabled:opacity-40">
+                        {actionLoading === `generate_${c.id}` ? <Loader2 className="w-4 h-4 animate-spin" /> : <RefreshCw className="w-4 h-4" />} Gen Code
+                      </button>
                     </div>
+
+                    {/* Invite Codes List */}
+                    {collegeInviteCodes[c.id] && collegeInviteCodes[c.id].length > 0 && (
+                      <div className="mt-3 space-y-2">
+                        <p className="text-[10px] uppercase font-bold text-white/30 tracking-wider">One-Time Invite Codes</p>
+                        {collegeInviteCodes[c.id].map(code => (
+                          <div key={code.id} className="flex items-center justify-between p-2 rounded-lg bg-white/5 border border-white/10">
+                            <span className={`font-mono text-sm font-bold tracking-wider ${code.is_used ? 'text-white/30 line-through' : 'text-amber-400'}`}>
+                              {code.code}
+                            </span>
+                            <span className={`text-[10px] px-2 py-0.5 rounded-full font-bold ${code.is_used ? 'bg-white/10 text-white/40' : 'bg-cyber-green/10 text-cyber-green'}`}>
+                              {code.is_used ? 'USED' : 'ACTIVE'}
+                            </span>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+
                     {/* Assigned College Admins */}
                     {c.admins && c.admins.filter(a => a.role === 'college_admin').length > 0 && (
                       <div className="mt-3 space-y-2">
@@ -445,6 +777,189 @@ export default function UniversityAdminPage() {
                   <p className="text-white/40">No colleges added yet.</p>
                 </div>
               )}
+            </div>
+          </div>
+        )}
+
+        {tab === 'organiser_requests' && (
+          <div>
+            <div className="flex items-center gap-3 mb-6">
+              <h2 className="text-2xl font-black">Organiser Applications</h2>
+              {roleRequests.filter(r => r.status === 'pending').length > 0 && (
+                <span className="px-2.5 py-1 rounded-full text-xs font-bold bg-amber-400/20 text-amber-400 border border-amber-400/30">
+                  {roleRequests.filter(r => r.status === 'pending').length}
+                </span>
+              )}
+            </div>
+
+            <div className="grid grid-cols-1 gap-4">
+              {roleRequests.filter(r => r.status === 'pending').map(req => (
+                <div key={req.id} className="rounded-2xl border border-amber-500/20 p-5" style={{ background: 'rgba(245,158,11,0.03)' }}>
+                  <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+                    <div>
+                      <div className="flex items-center gap-2 mb-1">
+                        <Users className="w-5 h-5 text-amber-400" />
+                        <h3 className="font-bold text-lg">{req.profile?.full_name || req.profile?.email}</h3>
+                        {req.profile?.roll_number && (
+                          <span className="text-xs px-2 py-0.5 rounded bg-white/10 text-white/70 font-mono">
+                            {req.profile.roll_number}
+                          </span>
+                        )}
+                      </div>
+                      <div className="flex items-center gap-4 text-sm text-white/50">
+                        <p>{req.profile?.email}</p>
+                        <p className="flex items-center gap-1"><Building2 className="w-4 h-4" /> {req.college?.name}</p>
+                        <p className="flex items-center gap-1 font-mono text-cyber-green border border-cyber-green/20 bg-cyber-green/5 px-2 py-0.5 rounded">
+                          CODE: {req.invite_code}
+                        </p>
+                      </div>
+                    </div>
+                    <div className="flex gap-2 shrink-0">
+                      <button
+                        onClick={() => handleRejectRole(req.id)}
+                        disabled={actionLoading === req.id}
+                        className="flex items-center gap-2 px-4 py-2 rounded-xl font-bold border border-red-500/30 text-red-400 bg-red-500/10 hover:bg-red-500/20 transition-all disabled:opacity-50">
+                        <XCircle className="w-4 h-4" /> Reject
+                      </button>
+                      <button
+                        onClick={() => handleApproveRole(req)}
+                        disabled={actionLoading === req.id}
+                        className="flex items-center gap-2 px-4 py-2 rounded-xl font-bold text-black transition-all disabled:opacity-50"
+                        style={{ background: '#00FF66' }}>
+                        {actionLoading === req.id ? <Loader2 className="w-4 h-4 animate-spin" /> : <CheckCircle2 className="w-4 h-4" />}
+                        Approve
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              ))}
+              {roleRequests.filter(r => r.status === 'pending').length === 0 && (
+                <div className="col-span-full py-12 text-center border border-white/[0.06] rounded-2xl border-dashed">
+                  <p className="text-white/40">No pending organiser applications.</p>
+                </div>
+              )}
+            </div>
+
+            {/* History */}
+            {roleRequests.filter(r => r.status !== 'pending').length > 0 && (
+              <div className="mt-8">
+                <h3 className="text-lg font-bold text-white/50 mb-4">Past Applications</h3>
+                <div className="space-y-3">
+                  {roleRequests.filter(r => r.status !== 'pending').map(req => (
+                    <div key={req.id} className="rounded-xl border border-white/[0.06] px-5 py-4 flex items-center justify-between"
+                      style={{ background: 'rgba(255,255,255,0.02)' }}>
+                      <div>
+                        <p className="font-semibold">{req.profile?.full_name || req.profile?.email}</p>
+                        <p className="text-xs text-white/40 mt-0.5">{req.college?.name} · Code: {req.invite_code}</p>
+                      </div>
+                      <span className={`text-xs px-3 py-1 rounded-full font-bold border ${
+                        req.status === 'approved'
+                          ? 'text-cyber-green bg-cyber-green/10 border-cyber-green/30'
+                          : 'text-red-400 bg-red-400/10 border-red-400/30'
+                      }`}>
+                        {req.status.toUpperCase()}
+                      </span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+          </div>
+        )}
+
+        {tab === 'batch_codes' && (
+          <div>
+            <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-6">
+              <div>
+                <h2 className="text-2xl font-black">CR Batch Codes</h2>
+                <p className="text-sm text-white/50 mt-1">Define valid Roll Number prefixes for Class Representatives (e.g. "2026-CS", "2024-MECH").</p>
+              </div>
+            </div>
+
+            <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+              <div className="lg:col-span-2">
+                <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
+                  {batchCodes.map(bc => (
+                    <div key={bc.id} className="rounded-xl border border-white/[0.06] p-4 flex items-center justify-between group"
+                      style={{ background: 'rgba(255,255,255,0.02)' }}>
+                      <span className="font-mono font-bold text-cyber-green">{bc.batch_prefix}</span>
+                      <button
+                        onClick={() => handleDeleteBatchCode(bc.id)}
+                        disabled={actionLoading === bc.id}
+                        className="text-white/20 hover:text-red-400 opacity-0 group-hover:opacity-100 transition-all">
+                        {actionLoading === bc.id ? <Loader2 className="w-4 h-4 animate-spin" /> : <Trash2 className="w-4 h-4" />}
+                      </button>
+                    </div>
+                  ))}
+                  {batchCodes.length === 0 && (
+                    <div className="col-span-full py-12 text-center border border-white/[0.06] rounded-2xl border-dashed">
+                      <p className="text-white/40">No batch codes defined.</p>
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              <div className="glass-card p-6 h-fit">
+                <h3 className="font-bold mb-4">Add Batch Prefix</h3>
+                <form onSubmit={handleAddBatchCode} className="space-y-3">
+                  <div>
+                    <input
+                      required
+                      type="text"
+                      placeholder="e.g. 2026-CS"
+                      value={newBatchPrefix}
+                      onChange={e => setNewBatchPrefix(e.target.value)}
+                      className="input-cyber w-full"
+                    />
+                    <p className="text-xs text-white/40 mt-2">Any Roll Number starting with this prefix will be routed to the assigned CR.</p>
+                  </div>
+                  <button type="submit" disabled={actionLoading === 'add_batch'} className="btn-cyber w-full justify-center">
+                    {actionLoading === 'add_batch' ? <Loader2 className="w-4 h-4 animate-spin" /> : 'Add Prefix'}
+                  </button>
+                </form>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {tab === 'security' && (
+          <div className="space-y-6">
+            <div className="flex items-center gap-3 mb-6">
+              <h2 className="text-2xl font-black">Security Settings</h2>
+            </div>
+            
+            <div className="glass-card p-6">
+              <h3 className="text-lg font-bold text-cyber-green mb-2">Student Roll Number Format</h3>
+              <p className="text-sm text-white/40 mb-6 max-w-2xl">
+                Define the strict format for roll numbers at your university. When students register, they will be forced to match this pattern exactly. This greatly improves OCR accuracy.
+              </p>
+
+              <VisualRegexBuilder 
+                initialBlocks={uniRegexBlocks}
+                onChange={(regex, hint, blocks) => {
+                  setUniRegexStr(regex)
+                  setUniRegexHint(hint)
+                  setUniRegexBlocks(blocks)
+                }}
+              />
+
+              <div className="mt-6 p-4 rounded-xl bg-black/40 border border-white/[0.06] flex items-center justify-between">
+                <div>
+                  <p className="text-xs text-white/40 uppercase font-bold tracking-wider mb-1">Generated Pattern</p>
+                  <p className="font-mono text-sm text-amber-400">{uniRegexStr || 'No pattern set'}</p>
+                </div>
+                <div>
+                  <p className="text-xs text-white/40 uppercase font-bold tracking-wider mb-1">Example Hint</p>
+                  <p className="font-mono text-sm text-cyber-green">{uniRegexHint || 'No hint set'}</p>
+                </div>
+                <button
+                  onClick={handleSaveRegex}
+                  disabled={actionLoading === 'save_regex' || !uniRegexStr}
+                  className="btn-cyber flex items-center gap-2"
+                >
+                  {actionLoading === 'save_regex' ? <Loader2 className="w-4 h-4 animate-spin" /> : 'Save Format'}
+                </button>
+              </div>
             </div>
           </div>
         )}

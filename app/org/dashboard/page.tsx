@@ -13,8 +13,9 @@ import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import toast from 'react-hot-toast'
 import Navbar from '@/components/ui/Navbar'
+import CommitteesTab from '@/components/org/CommitteesTab'
 
-type TabId = 'overview' | 'events' | 'roles' | 'create'
+type TabId = 'overview' | 'events' | 'roles' | 'create' | 'committees'
 
 const ROLE_OPTIONS = [
   {
@@ -81,6 +82,10 @@ export default function OrgDashboardPage() {
   const [roleAssigning, setRoleAssigning] = useState(false)
   const [selectedRole, setSelectedRole] = useState<string>('supervisor')
   const [teamMembers, setTeamMembers] = useState<any[]>([])
+  
+  // CR Batch Assignment State
+  const [batchCodes, setBatchCodes] = useState<any[]>([])
+  const [selectedBatchPrefix, setSelectedBatchPrefix] = useState<string>('')
 
   // University join request flow
   const [universities, setUniversities] = useState<{ id: string; name: string; slug: string }[]>([])
@@ -110,22 +115,41 @@ export default function OrgDashboardPage() {
         .from('profiles').select('*').eq('id', user.id).single()
       setProfile(profileData)
 
-      if (profileData?.role !== 'org_admin' && profileData?.role !== 'super_admin') {
-        router.push('/events')
+      if (profileData?.role !== 'org_admin' && profileData?.role !== 'super_admin' && profileData?.role !== 'organiser') {
+        router.push('/auth')
         return
       }
 
-      // Fetch org
-      const { data: orgData } = await supabase
-        .from('organizations').select('*').eq('owner_id', user.id).single()
-      if (!orgData) { setLoading(false); return }
-      setOrg(orgData)
+      // Fetch org (Check if owner OR if invited member)
+      let fetchedOrg = null
+
+      const { data: ownedOrg } = await supabase
+        .from('organizations').select('*').eq('owner_id', user.id).maybeSingle()
+
+      if (ownedOrg) {
+        fetchedOrg = ownedOrg
+      } else {
+        const { data: memberRecord } = await supabase
+          .from('org_members_supervisors')
+          .select('org_id')
+          .eq('user_id', user.id)
+          .maybeSingle()
+          
+        if (memberRecord) {
+          const { data: memberOrg } = await supabase
+            .from('organizations').select('*').eq('id', memberRecord.org_id).maybeSingle()
+          fetchedOrg = memberOrg
+        }
+      }
+
+      if (!fetchedOrg) { setLoading(false); return }
+      setOrg(fetchedOrg)
 
       // Fetch events with ticket/checkin counts
       const { data: eventsData } = await supabase
         .from('events')
         .select('*')
-        .eq('org_id', orgData.id)
+        .eq('org_id', fetchedOrg.id)
         .order('created_at', { ascending: false })
 
       const eventsWithStats: EventWithStats[] = []
@@ -142,12 +166,12 @@ export default function OrgDashboardPage() {
       const { data: supsData } = await supabase
         .from('org_members_supervisors')
         .select('*, profile:profiles(full_name, email, role)')
-        .eq('org_id', orgData.id)
+        .eq('org_id', fetchedOrg.id)
       setSupervisors(supsData || [])
 
       // Fetch team members (owner + invited members) for role manager
       const memberUserIds = supsData?.map(s => s.user_id).filter(Boolean) || []
-      const teamUserIds = Array.from(new Set([orgData.owner_id, ...memberUserIds]))
+      const teamUserIds = Array.from(new Set([fetchedOrg.owner_id, ...memberUserIds]))
 
       const { data: teamData } = await supabase
         .from('profiles')
@@ -172,11 +196,17 @@ export default function OrgDashboardPage() {
       const { data: unis } = await supabase.from('universities').select('id, name, slug').eq('is_active', true).order('name')
       setUniversities(unis || [])
 
+      if (profileData?.university_id_fk) {
+        const { data: bc } = await supabase.from('university_batch_codes').select('batch_prefix').eq('university_id', profileData.university_id_fk).order('batch_prefix')
+        setBatchCodes(bc || [])
+        if (bc && bc.length > 0) setSelectedBatchPrefix(bc[0].batch_prefix)
+      }
+
       // Fetch any existing join request
       const { data: reqData } = await supabase
         .from('org_join_requests')
         .select('status, reviewer_note')
-        .eq('org_id', orgData.id)
+        .eq('org_id', fetchedOrg.id)
         .maybeSingle()
       setJoinRequest(reqData || null)
 
@@ -342,7 +372,10 @@ export default function OrgDashboardPage() {
     try {
       const { error } = await supabase
         .from('profiles')
-        .update({ role: newRole })
+        .update({ 
+          role: newRole,
+          cr_batch_prefix: newRole === 'committee_admin' && selectedBatchPrefix ? selectedBatchPrefix : null
+        })
         .eq('id', userId)
       if (error) throw error
 
@@ -360,7 +393,7 @@ export default function OrgDashboardPage() {
           invited_by: profile?.id,
           invite_email: roleSearchResult?.email,
           event_scopes: [],
-          accepted: true,
+          accepted: true
         }, { onConflict: 'org_id,user_id' })
         
         if (orgError) throw orgError
@@ -402,6 +435,7 @@ export default function OrgDashboardPage() {
     { id: 'overview' as TabId, label: 'Overview', icon: BarChart3 },
     { id: 'events' as TabId, label: 'Events', icon: Calendar },
     { id: 'roles' as TabId, label: 'Role Manager', icon: Users },
+    { id: 'committees' as TabId, label: 'Committees & CR', icon: Shield },
   ]
 
   return (
@@ -806,6 +840,27 @@ export default function OrgDashboardPage() {
                       ))}
                     </div>
 
+                    {selectedRole === 'committee_admin' && batchCodes.length > 0 && (
+                      <div className="mb-4 p-4 rounded-xl border border-white/10" style={{ background: 'rgba(0,0,0,0.3)' }}>
+                        <label className="text-xs text-white/50 uppercase tracking-wider block mb-2">Smart CR Routing: Assigned Batch</label>
+                        <select
+                          value={selectedBatchPrefix}
+                          onChange={e => setSelectedBatchPrefix(e.target.value)}
+                          className="input-cyber w-full bg-obsidian-900"
+                        >
+                          <option value="">No specific batch (Can verify anyone)</option>
+                          {batchCodes.map(bc => (
+                            <option key={bc.batch_prefix} value={bc.batch_prefix}>
+                              {bc.batch_prefix} (e.g. {bc.batch_prefix}-...)
+                            </option>
+                          ))}
+                        </select>
+                        <p className="text-[10px] text-white/40 mt-2">
+                          If set, this Verifier will ONLY receive verification requests from students whose roll number starts with this prefix.
+                        </p>
+                      </div>
+                    )}
+
                     <button
                       onClick={() => handleAssignRole(roleSearchResult.id, selectedRole)}
                       disabled={roleAssigning}
@@ -878,6 +933,11 @@ export default function OrgDashboardPage() {
                 )}
               </div>
             </div>
+          )}
+
+          {/* Committees Tab */}
+          {tab === 'committees' && (
+            <CommitteesTab org={org} profile={profile} />
           )}
         </div>
       </div>

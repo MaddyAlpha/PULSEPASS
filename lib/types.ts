@@ -11,6 +11,7 @@ export type UserRole =
   | 'university_admin'
   | 'supervisor'
   | 'super_admin'
+  | 'organiser'
 
 export type TicketType = 'general' | 'vip'
 export type TicketStatus = 'valid' | 'pending_verification' | 'checked_in' | 'expired' | 'cancelled'
@@ -33,6 +34,7 @@ export interface University {
     manual_review_enabled: boolean
     ocr_keywords: string[]
   }
+  roll_number_regex: string | null
   created_by: string | null
   created_at: string
   updated_at: string
@@ -56,6 +58,8 @@ export interface Committee {
   name: string
   slug: string
   org_id: string | null
+  head_roll_number: string | null
+  join_code: string | null
   created_at: string
   // Joined
   college?: College
@@ -75,6 +79,9 @@ export interface Profile {
   university_id_fk: string | null     // FK to universities table
   college_id: string | null
   committee_id: string | null
+  roll_number: string | null
+  cr_batch_prefix: string | null
+  id_card_url: string | null
   created_at: string
   updated_at: string
 }
@@ -111,6 +118,75 @@ export interface OrgMemberSupervisor {
   // Joined fields
   profile?: Profile
   organization?: Organization
+}
+
+// ── Role Requests & Invites ─────────────────────────────────
+
+export type RoleRequestStatus = 'pending' | 'approved' | 'rejected'
+
+export interface CollegeInviteCode {
+  id: string
+  college_id: string
+  university_id: string
+  code: string
+  is_active: boolean
+  created_by: string
+  created_at: string
+}
+
+export interface RoleRequest {
+  id: string
+  user_id: string
+  college_id: string
+  university_id: string
+  invite_code: string
+  status: RoleRequestStatus
+  reviewed_by: string | null
+  reviewed_at: string | null
+  created_at: string
+  // Joined
+  profile?: Profile
+  reviewer?: Profile
+}
+
+export interface UniversityBatchCode {
+  id: string
+  university_id: string
+  prefix_code: string
+  description: string
+  created_at: string
+}
+
+// ── Finances & Logistics ────────────────────────────────────
+
+export interface CommitteeFinance {
+  id: string
+  committee_id: string
+  college_id: string
+  university_id: string
+  type: 'INCOME' | 'EXPENSE'
+  amount: number
+  vendor_name: string | null
+  receipt_url: string | null
+  logged_by: string
+  created_at: string
+  // Joined
+  logger?: Profile
+}
+
+export interface CommitteeLogistic {
+  id: string
+  committee_id: string
+  college_id: string
+  university_id: string
+  item_name: string
+  vendor_contact: string | null
+  status: 'PENDING' | 'PROCURED' | 'RETURNED'
+  assigned_to: string | null
+  created_at: string
+  updated_at: string
+  // Joined
+  assignee?: Profile
 }
 
 // ── Events ──────────────────────────────────────────────────

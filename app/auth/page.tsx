@@ -4,12 +4,13 @@ import { useState, useEffect, Suspense } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import Link from 'next/link'
 import { motion, AnimatePresence } from 'framer-motion'
-import { Zap, Eye, EyeOff, Mail, Lock, User, Building2, GraduationCap, ArrowLeft, Loader2 } from 'lucide-react'
+import { Zap, Eye, EyeOff, Mail, Lock, User, Building2, ArrowLeft, Loader2 } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 import toast from 'react-hot-toast'
+import DynamicRollNumberInput from '@/components/ui/DynamicRollNumberInput'
+import type { RegexBlock } from '@/components/ui/VisualRegexBuilder'
 
 type Tab = 'signin' | 'signup'
-type Role = 'student' | 'org_admin'
 
 function AuthForm() {
   const router = useRouter()
@@ -17,17 +18,41 @@ function AuthForm() {
   const supabase = createClient()
 
   const [tab, setTab] = useState<Tab>((searchParams.get('tab') as Tab) || 'signin')
-  const [role, setRole] = useState<Role>((searchParams.get('role') as Role) || 'student')
   const [loading, setLoading] = useState(false)
   const [showPassword, setShowPassword] = useState(false)
+  const [isStaff, setIsStaff] = useState(false)
+  const [universities, setUniversities] = useState<{ id: string, name: string, roll_number_regex: string | null, roll_number_format_hint: string | null, roll_number_regex_blocks: any }[]>([])
+  const [debugInfo, setDebugInfo] = useState<string>('Initializing...')
+  
+  useEffect(() => {
+    const fetchUniversities = async () => {
+      setDebugInfo('Fetching universities...')
+      try {
+        const { data, error } = await supabase.from('universities').select('id, name, roll_number_regex, roll_number_format_hint, roll_number_regex_blocks').eq('is_active', true)
+        console.log('[PulsePass] Universities fetch result:', { data, error, count: data?.length })
+        if (error) {
+          console.error('[PulsePass] Universities fetch ERROR:', error.message, error.code, error.details)
+          setDebugInfo(`Error: ${error.message}`)
+          toast.error(`Error loading universities: ${error.message}`)
+        }
+        if (data) {
+          setUniversities(data)
+          setDebugInfo(`Loaded ${data.length} universities`)
+        }
+      } catch (err: any) {
+        setDebugInfo(`Catch Error: ${err.message}`)
+      }
+    }
+    fetchUniversities()
+  }, [])
 
   const [formData, setFormData] = useState({
     email: '',
     password: '',
     full_name: '',
-    org_name: '',
-    org_department: '',
-    verification_code: '',
+    university_id: '',
+    roll_number: '',
+    invite_code: '',
   })
 
   const update = (key: string, value: string) =>
@@ -44,8 +69,7 @@ function AuthForm() {
       if (error) throw error
 
       toast.success('Welcome back!')
-      const redirect = searchParams.get('redirect') || '/events'
-      window.location.href = redirect
+      window.location.href = searchParams.get('redirect') || '/my-passes'
     } catch (err: unknown) {
       const message = err instanceof Error ? err.message : 'Sign in failed'
       toast.error(message)
@@ -64,9 +88,29 @@ function AuthForm() {
       toast.error('Password must be at least 8 characters')
       return
     }
-    if (role === 'org_admin' && !formData.org_name) {
-      toast.error('Organization name is required')
-      return
+    if (!isStaff) {
+      if (!formData.university_id) {
+        toast.error('Please select your university')
+        return
+      }
+      if (!formData.roll_number) {
+        toast.error('Roll Number is required')
+        return
+      }
+      // Enforce university-specific roll number regex
+      const selectedUni = universities.find(u => u.id === formData.university_id)
+      if (selectedUni?.roll_number_regex) {
+        const regex = new RegExp(selectedUni.roll_number_regex)
+        if (!regex.test(formData.roll_number)) {
+          toast.error(`Invalid Roll Number format. Expected format: ${selectedUni.roll_number_regex}`)
+          return
+        }
+      }
+    } else {
+      if (!formData.invite_code) {
+        toast.error('Invite Code is required for staff/admin registration')
+        return
+      }
     }
 
     setLoading(true)
@@ -77,33 +121,20 @@ function AuthForm() {
         options: {
           data: {
             full_name: formData.full_name,
-            role,
-            org_name: formData.org_name || null,
-            org_department: formData.org_department || null,
+            role: 'student',
+            university_id_fk: formData.university_id || null,
+            roll_number: formData.roll_number || null,
+            invite_code: formData.invite_code || null,
           },
         },
       })
       if (error) throw error
 
-      if (role === 'org_admin' && data.user) {
-        // Create org record
-        const slug = formData.org_name.toLowerCase().replace(/\s+/g, '-').replace(/[^a-z0-9-]/g, '')
-        await supabase.from('organizations').insert({
-          name: formData.org_name,
-          slug: `${slug}-${Date.now()}`,
-          department: formData.org_department || null,
-          owner_id: data.user.id,
-        })
-        // Update role
-        await supabase.from('profiles').update({ role: 'org_admin' }).eq('id', data.user.id)
-      }
-
       if (data.session) {
         toast.success('Account created successfully!')
-        const redirect = searchParams.get('redirect') || '/events'
-        window.location.href = redirect
+        window.location.href = '/my-passes'
       } else {
-        toast.success('Account created successfully! Please sign in.')
+        toast.success('Account created! Please sign in.')
         setTab('signin')
       }
     } catch (err: unknown) {
@@ -228,35 +259,20 @@ function AuthForm() {
                 onSubmit={handleSignUp}
                 className="space-y-4">
 
-                {/* Role selector */}
-                <div className="space-y-2">
-                  <label className="text-xs text-white/50 font-medium uppercase tracking-wider">I am a</label>
-                  <div className="grid grid-cols-2 gap-3">
-                    {([
-                      { id: 'student', label: 'Student', icon: GraduationCap, desc: 'Claim passes & attend events' },
-                      { id: 'org_admin', label: 'Club / Org', icon: Building2, desc: 'Manage events & tickets' },
-                    ] as { id: Role; label: string; icon: typeof GraduationCap; desc: string }[]).map(r => (
-                      <button
-                        key={r.id}
-                        type="button"
-                        onClick={() => setRole(r.id)}
-                        className="flex flex-col items-center gap-2 p-4 rounded-xl transition-all duration-200 text-center"
-                        style={role === r.id ? {
-                          background: 'rgba(0,255,102,0.08)',
-                          border: '1px solid rgba(0,255,102,0.3)',
-                        } : {
-                          background: 'rgba(255,255,255,0.03)',
-                          border: '1px solid rgba(255,255,255,0.08)',
-                        }}>
-                        <r.icon className={`w-5 h-5 ${role === r.id ? 'text-cyber-green' : 'text-white/40'}`} />
-                        <div>
-                          <p className={`text-sm font-semibold ${role === r.id ? 'text-cyber-green' : 'text-white/70'}`}>
-                            {r.label}
-                          </p>
-                          <p className="text-xs text-white/35 mt-0.5">{r.desc}</p>
-                        </div>
-                      </button>
-                    ))}
+                {/* Student-only notice or Staff notice */}
+                <div className="flex items-center gap-3 px-4 py-3 rounded-xl border border-cyber-green/20 cursor-pointer hover:bg-cyber-green/5 transition-colors"
+                  style={{ background: 'rgba(0,255,102,0.05)' }}
+                  onClick={() => setIsStaff(!isStaff)}>
+                  <div className="w-8 h-8 rounded-lg flex items-center justify-center shrink-0"
+                    style={{ background: 'rgba(0,255,102,0.12)' }}>
+                    <User className="w-4 h-4 text-cyber-green" />
+                  </div>
+                  <div className="flex-1">
+                    <p className="text-sm font-semibold text-cyber-green">{isStaff ? 'Staff/Admin Registration' : 'Student Registration'}</p>
+                    <p className="text-xs text-white/40 mt-0.5">{isStaff ? 'Registering with an invite code.' : 'Organisers & staff join via invite code.'}</p>
+                  </div>
+                  <div className="text-xs font-bold text-cyber-green underline decoration-cyber-green/30 hover:decoration-cyber-green/70">
+                    Switch to {isStaff ? 'Student' : 'Staff'}
                   </div>
                 </div>
 
@@ -274,6 +290,89 @@ function AuthForm() {
                     />
                   </div>
                 </div>
+
+                {/* University & Roll Number (for students) OR Invite Code (for staff) */}
+                {!isStaff ? (
+                  <>
+                    <div className="space-y-1.5">
+                      <label className="text-xs text-white/50 font-medium uppercase tracking-wider flex justify-between">
+                        <span>University</span>
+                        <span className="text-amber-500/50">{debugInfo}</span>
+                      </label>
+                      <div className="relative">
+                        <Building2 className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-white/30 pointer-events-none" />
+                        <select
+                          required
+                          value={formData.university_id}
+                          onChange={e => update('university_id', e.target.value)}
+                          className="input-cyber pl-10 appearance-none bg-obsidian-900 text-white"
+                        >
+                          <option value="" className="text-white bg-obsidian-900">Select your university</option>
+                          {universities.map(u => (
+                            <option key={u.id} value={u.id} className="text-white bg-obsidian-900">{u.name}</option>
+                          ))}
+                        </select>
+                      </div>
+                    </div>
+
+                    <div className="space-y-1.5">
+                      <label className="text-xs text-white/50 font-medium uppercase tracking-wider flex items-center justify-between">
+                        <span>Roll Number</span>
+                        {universities.find(u => u.id === formData.university_id)?.roll_number_format_hint && (
+                          <span className="text-cyber-green/70 normal-case font-mono text-[10px]">
+                            Format: {universities.find(u => u.id === formData.university_id)?.roll_number_format_hint}
+                          </span>
+                        )}
+                      </label>
+                      
+                      {(() => {
+                        const uni = universities.find(u => u.id === formData.university_id)
+                        const blocks = uni?.roll_number_regex_blocks as RegexBlock[] | undefined
+                        
+                        if (blocks && Array.isArray(blocks) && blocks.length > 0) {
+                          return (
+                            <div className="bg-black/20 p-4 rounded-xl border border-white/5">
+                              <DynamicRollNumberInput 
+                                blocks={blocks} 
+                                value={formData.roll_number} 
+                                onChange={(val) => update('roll_number', val)} 
+                              />
+                            </div>
+                          )
+                        }
+
+                        return (
+                          <div className="relative">
+                            <User className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-white/30 pointer-events-none" />
+                            <input
+                              type="text"
+                              required
+                              placeholder="Your university roll number"
+                              value={formData.roll_number}
+                              onChange={e => update('roll_number', e.target.value.toUpperCase())}
+                              className="input-cyber pl-10 uppercase"
+                            />
+                          </div>
+                        )
+                      })()}
+                    </div>
+                  </>
+                ) : (
+                  <div className="space-y-1.5">
+                    <label className="text-xs text-white/50 font-medium uppercase tracking-wider">Invite Code</label>
+                    <div className="relative">
+                      <Lock className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-amber-500/50 pointer-events-none" />
+                      <input
+                        type="text"
+                        required
+                        placeholder="Enter your admin/staff code"
+                        value={formData.invite_code}
+                        onChange={e => update('invite_code', e.target.value.toUpperCase())}
+                        className="input-cyber pl-10 uppercase focus:border-amber-500/50 focus:ring-amber-500/50"
+                      />
+                    </div>
+                  </div>
+                )}
 
                 <div className="space-y-1.5">
                   <label className="text-xs text-white/50 font-medium uppercase tracking-wider">
@@ -312,46 +411,6 @@ function AuthForm() {
                     </button>
                   </div>
                 </div>
-
-                {/* Org-specific fields */}
-                <AnimatePresence>
-                  {role === 'org_admin' && (
-                    <motion.div
-                      initial={{ opacity: 0, height: 0 }}
-                      animate={{ opacity: 1, height: 'auto' }}
-                      exit={{ opacity: 0, height: 0 }}
-                      className="space-y-4 overflow-hidden">
-                      <div className="space-y-1.5">
-                        <label className="text-xs text-white/50 font-medium uppercase tracking-wider">
-                          Organization / Club Name
-                        </label>
-                        <div className="relative">
-                          <Building2 className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-white/30 pointer-events-none" />
-                          <input
-                            type="text"
-                            required={role === 'org_admin'}
-                            placeholder="e.g. Agro Club, COBS Society"
-                            value={formData.org_name}
-                            onChange={e => update('org_name', e.target.value)}
-                            className="input-cyber pl-10"
-                          />
-                        </div>
-                      </div>
-                      <div className="space-y-1.5">
-                        <label className="text-xs text-white/50 font-medium uppercase tracking-wider">
-                          Department <span className="text-white/25">(optional)</span>
-                        </label>
-                        <input
-                          type="text"
-                          placeholder="e.g. Faculty of Agriculture"
-                          value={formData.org_department}
-                          onChange={e => update('org_department', e.target.value)}
-                          className="input-cyber"
-                        />
-                      </div>
-                    </motion.div>
-                  )}
-                </AnimatePresence>
 
                 <button type="submit" disabled={loading} className="btn-cyber w-full justify-center py-3.5">
                   {loading ? <Loader2 className="w-4 h-4 animate-spin" /> : 'Create Account'}
