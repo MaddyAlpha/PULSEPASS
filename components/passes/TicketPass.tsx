@@ -1,8 +1,8 @@
 'use client'
 
-import { useRef, useCallback } from 'react'
+import { useRef, useCallback, useState, useEffect } from 'react'
 import { QRCodeCanvas } from 'qrcode.react'
-import { Download, Zap, Ticket, User, Calendar, MapPin, Shield } from 'lucide-react'
+import { Download, Zap, Ticket, User, Calendar, MapPin, Shield, RefreshCw } from 'lucide-react'
 import type { PassDisplayData } from '@/lib/types'
 import toast from 'react-hot-toast'
 
@@ -13,6 +13,35 @@ interface TicketPassProps {
 export default function TicketPass({ data }: TicketPassProps) {
   const { ticket, event, organization, holder } = data
   const passRef = useRef<HTMLDivElement>(null)
+  const [dynamicQrToken, setDynamicQrToken] = useState(ticket.qr_token)
+  const [isRefreshing, setIsRefreshing] = useState(false)
+
+  // Poll for a fresh JWT token every 25 seconds
+  useEffect(() => {
+    // Only refresh if ticket is valid
+    if (ticket.ticket_status !== 'valid' && ticket.ticket_status !== 'pending_verification') return
+
+    const interval = setInterval(async () => {
+      setIsRefreshing(true)
+      try {
+        const res = await fetch('/api/tickets/refresh-qr', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ ticket_id: ticket.id })
+        })
+        const json = await res.json()
+        if (res.ok && json.jwt_token) {
+          setDynamicQrToken(json.jwt_token)
+        }
+      } catch (err) {
+        console.error('Failed to refresh QR:', err)
+      } finally {
+        setIsRefreshing(false)
+      }
+    }, 25000)
+
+    return () => clearInterval(interval)
+  }, [ticket.id, ticket.ticket_status])
 
   const statusColor = {
     valid: { text: '#00FF66', bg: 'rgba(0,255,102,0.12)', border: 'rgba(0,255,102,0.25)' },
@@ -31,7 +60,7 @@ export default function TicketPass({ data }: TicketPassProps) {
   }[ticket.ticket_status]
 
   const qrPayload = JSON.stringify({
-    t: ticket.qr_token,
+    t: dynamicQrToken,
     e: event.id,
     v: 1,
   })
@@ -145,7 +174,7 @@ export default function TicketPass({ data }: TicketPassProps) {
       // Token ID
       doc.setFontSize(6)
       doc.setTextColor(50, 60, 70)
-      doc.text(`TOKEN: ${ticket.qr_token.slice(0, 24).toUpperCase()}...`, W / 2, H - 12, { align: 'center' })
+      doc.text(`TOKEN: ${dynamicQrToken.slice(0, 24).toUpperCase()}...`, W / 2, H - 12, { align: 'center' })
       doc.setDrawColor(0, 255, 102)
       doc.setLineWidth(0.3)
       doc.line(margin, H - 16, W - margin, H - 16)
@@ -220,9 +249,13 @@ export default function TicketPass({ data }: TicketPassProps) {
               }}
             />
           </div>
-          <p className="mt-3 text-xs text-white/30 font-mono tracking-wider">
-            {ticket.qr_token.slice(0, 8).toUpperCase()}...{ticket.qr_token.slice(-8).toUpperCase()}
-          </p>
+          <div className="mt-3 flex flex-col items-center gap-1">
+            <p className="text-xs text-white/30 font-mono tracking-wider flex items-center gap-1.5">
+              {dynamicQrToken.slice(0, 8).toUpperCase()}...{dynamicQrToken.slice(-8).toUpperCase()}
+              {isRefreshing && <RefreshCw className="w-3 h-3 animate-spin text-cyber-green" />}
+            </p>
+            <p className="text-[10px] text-cyber-green/50 animate-pulse">QR rotates every 30s</p>
+          </div>
         </div>
 
         {/* Perforated divider */}
