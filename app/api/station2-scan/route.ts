@@ -9,13 +9,12 @@ export const runtime = 'edge';
  */
 
 import { NextRequest, NextResponse } from 'next/server'
-import { createClient, createAdminClient } from '@/lib/supabase/server'
+import { createClient } from '@/lib/supabase/server'
 import { verifyQRToken } from '@/lib/jwt'
 
 export async function POST(request: NextRequest) {
   try {
     const supabase = await createClient()
-    const adminSupabase = await createAdminClient()
 
     const { data: { user }, error: authError } = await supabase.auth.getUser()
     if (authError || !user) {
@@ -78,32 +77,21 @@ export async function POST(request: NextRequest) {
       return NextResponse.json(scanResult)
     }
 
-    // 5. Broadcast to Realtime channel for Station 3 Verifier
-    // Fetch profile details for verifier display
+    // 5. Fetch profile details and return them so the client can broadcast
     const { data: holderProfile } = await supabase
       .from('profiles')
       .select('full_name, email, avatar_url')
       .eq('id', ticket.user_id)
       .single()
 
-    await adminSupabase.channel(`gate:${event_id}`).send({
-      type: 'broadcast',
-      event: 'ticket_pending',
-      payload: {
-        ticket_id: ticket.id,
-        ticket_type: ticket.ticket_type,
-        user_id: ticket.user_id,
-        roll_number: ticket.roll_number || tokenPayload.roll_number,
-        is_vip: ticket.is_vip_bypass,
+    return NextResponse.json({
+      ...scanResult,
+      holderProfile: {
         full_name: holderProfile?.full_name,
         email: holderProfile?.email,
         avatar_url: holderProfile?.avatar_url,
-        scanned_at: new Date().toISOString(),
-        event_id,
-      },
+      }
     })
-
-    return NextResponse.json(scanResult)
   } catch (err) {
     console.error('[/api/station2-scan POST]', err)
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 })

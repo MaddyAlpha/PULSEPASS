@@ -172,6 +172,16 @@ export default function VerifierPage() {
         setAdmittedCount((c) => c + 1)
         if (navigator.vibrate) navigator.vibrate([100, 50, 100])
         playBeep(true)
+        
+        // Broadcast final admit to all gate devices
+        if (channelRef.current) {
+          channelRef.current.send({
+            type: 'broadcast',
+            event: 'ticket_admitted',
+            payload: { ticket_id: entry.ticket_id, event_id: eventId }
+          })
+        }
+
         // Remove after animation
         setTimeout(() => {
           setPendingTickets((prev) => prev.filter((p) => p.ticket_id !== entry.ticket_id))
