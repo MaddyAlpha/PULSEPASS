@@ -339,7 +339,7 @@ export default function ClaimPage() {
       {/* Header */}
       <div className="flex items-center gap-3 px-5 py-4 border-b border-white/[0.06]"
         style={{ background: 'rgba(5,7,9,0.97)', backdropFilter: 'blur(16px)' }}>
-        <Link href={`/events/${eventId}`} className="p-2 rounded-lg text-white/40 hover:text-white hover:bg-white/5 transition-all">
+        <Link href={`/u/${params.tenant_slug}/events/${eventId}`} className="p-2 rounded-lg text-white/40 hover:text-white hover:bg-white/5 transition-all">
           <ArrowLeft className="w-5 h-5" />
         </Link>
         <div>
@@ -586,7 +586,7 @@ export default function ClaimPage() {
                   </motion.div>
                 )}
 
-                <Link href={`/events/${eventId}`}
+                <Link href={`/u/${params.tenant_slug}/events/${eventId}`}
                   className="w-full flex items-center justify-center gap-2 py-3 rounded-2xl text-sm text-white/40 hover:text-white hover:bg-white/5 transition-all">
                   Cancel
                 </Link>

@@ -60,11 +60,11 @@ export default function EventDetailPage() {
 
   const handleClaimPassClick = () => {
     if (!user) {
-      router.push(`/auth?redirect=/events/${eventId}`)
+      router.push(`/auth?redirect=/u/${params.tenant_slug}/events/${eventId}`)
       return
     }
     // Route to OCR Claim screen
-    router.push(`/events/${eventId}/claim?type=${selectedType}`)
+    router.push(`/u/${params.tenant_slug}/events/${eventId}/claim?type=${selectedType}`)
   }
 
   if (loading) {
@@ -80,7 +80,7 @@ export default function EventDetailPage() {
       <div className="min-h-screen bg-obsidian-900 flex items-center justify-center">
         <div className="text-center">
           <p className="text-white/40 text-lg">Event not found</p>
-          <Link href="/events" className="btn-cyber-outline mt-4">Back to Events</Link>
+          <Link href={`/u/${params.tenant_slug}/events`} className="btn-cyber-outline mt-4">Back to Events</Link>
         </div>
       </div>
     )
@@ -127,7 +127,7 @@ export default function EventDetailPage() {
           {/* Left: Details */}
           <div className="md:col-span-2 space-y-8">
             {/* Back link */}
-            <Link href="/events" className="inline-flex items-center gap-2 text-sm text-white/40 hover:text-white/70 transition-colors">
+            <Link href={`/u/${params.tenant_slug}/events`} className="inline-flex items-center gap-2 text-sm text-white/40 hover:text-white/70 transition-colors">
               <ArrowLeft className="w-4 h-4" />
               All Events
             </Link>
