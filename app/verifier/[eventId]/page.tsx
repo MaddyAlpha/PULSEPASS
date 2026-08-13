@@ -246,7 +246,7 @@ export default function VerifierPage() {
   }
 
   return (
-    <div className="min-h-screen bg-obsidian-950 flex flex-col">
+    <div className="h-[100dvh] overflow-hidden bg-obsidian-950 flex flex-col">
       {/* Green flash on new arrival */}
       <AnimatePresence>
         {flashGreen && (

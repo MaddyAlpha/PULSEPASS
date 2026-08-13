@@ -222,7 +222,7 @@ export default function GatekeeperScannerPage() {
   }
 
   return (
-    <div className="min-h-screen bg-obsidian-950 flex flex-col">
+    <div className="h-[100dvh] overflow-hidden bg-obsidian-950 flex flex-col">
       {/* Header */}
       <div className="flex items-center justify-between px-5 py-4 border-b border-white/[0.06]"
         style={{ background: 'rgba(5,7,9,0.95)', backdropFilter: 'blur(16px)' }}>
