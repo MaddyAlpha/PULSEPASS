@@ -62,12 +62,6 @@ export default function TicketPass({ data }: TicketPassProps) {
     cancelled: '● Cancelled',
   }[ticket.ticket_status]
 
-  const qrPayload = JSON.stringify({
-    t: dynamicQrToken,
-    e: event.id,
-    v: 1,
-  })
-
   const handleDownloadPDF = useCallback(async () => {
     try {
       const { jsPDF } = await import('jspdf')
@@ -230,22 +224,15 @@ export default function TicketPass({ data }: TicketPassProps) {
 
         {/* QR Code */}
         <div className="flex flex-col items-center py-6 px-4">
-          <div className="p-4 rounded-2xl"
-            style={{ background: '#fff', boxShadow: '0 0 30px rgba(0,255,102,0.15)' }}>
+          <div className="p-4 rounded-2xl bg-white"
+            style={{ boxShadow: '0 0 30px rgba(0,255,102,0.15)' }}>
             <QRCodeCanvas
               id="ticket-qr-canvas"
-              value={qrPayload}
-              size={1024}
-              style={{ width: 160, height: 160 }}
+              value={dynamicQrToken}
+              size={200}
               level="H"
               fgColor="#0A0D0F"
               bgColor="#ffffff"
-              imageSettings={{
-                src: '/logo-qr.png',
-                height: 154,
-                width: 154,
-                excavate: true,
-              }}
             />
           </div>
           <div className="mt-3 flex flex-col items-center gap-1">
