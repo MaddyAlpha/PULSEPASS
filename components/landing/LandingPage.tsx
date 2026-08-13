@@ -68,7 +68,7 @@ const cardVariants = {
 
 export default function LandingPage() {
   return (
-    <div className="relative min-h-screen bg-obsidian-900 overflow-x-hidden">
+    <div className="relative min-h-[100dvh] bg-obsidian-900 overflow-x-hidden">
       {/* ── Navbar ── */}
       <nav className="fixed top-0 inset-x-0 z-50 border-b border-white/[0.06]"
         style={{ background: 'rgba(10,13,15,0.85)', backdropFilter: 'blur(16px)' }}>
@@ -99,7 +99,7 @@ export default function LandingPage() {
       </nav>
 
       {/* ── Hero Section ── */}
-      <section className="relative min-h-screen flex flex-col items-center justify-center pt-16 cyber-grid"
+      <section className="relative min-h-[100dvh] flex flex-col items-center justify-center pt-16 cyber-grid"
         style={{ backgroundSize: '40px 40px' }}>
         {/* Glow orb */}
         <div className="absolute top-1/4 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[600px] h-[600px] rounded-full pointer-events-none"

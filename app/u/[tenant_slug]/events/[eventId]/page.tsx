@@ -69,7 +69,7 @@ export default function EventDetailPage() {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-obsidian-900 flex items-center justify-center">
+      <div className="min-h-[100dvh] bg-obsidian-900 flex items-center justify-center">
         <Loader2 className="w-8 h-8 text-cyber-green animate-spin" />
       </div>
     )
@@ -77,7 +77,7 @@ export default function EventDetailPage() {
 
   if (!event) {
     return (
-      <div className="min-h-screen bg-obsidian-900 flex items-center justify-center">
+      <div className="min-h-[100dvh] bg-obsidian-900 flex items-center justify-center">
         <div className="text-center">
           <p className="text-white/40 text-lg">Event not found</p>
           <Link href={`/u/${params.tenant_slug}/events`} className="btn-cyber-outline mt-4">Back to Events</Link>
@@ -91,7 +91,7 @@ export default function EventDetailPage() {
   const isPast = new Date(event.ends_at) < new Date()
 
   return (
-    <div className="min-h-screen bg-obsidian-900">
+    <div className="min-h-[100dvh] bg-obsidian-900">
       <Navbar />
 
       {/* Banner */}

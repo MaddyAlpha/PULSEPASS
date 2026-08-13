@@ -160,7 +160,7 @@ export default function ProfilePage() {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-obsidian-900 flex items-center justify-center">
+      <div className="min-h-[100dvh] bg-obsidian-900 flex items-center justify-center">
         <Loader2 className="w-8 h-8 text-cyber-green animate-spin" />
       </div>
     )
@@ -181,7 +181,7 @@ export default function ProfilePage() {
   const RoleIcon = getRoleIcon()
 
   return (
-    <div className="min-h-screen bg-obsidian-900">
+    <div className="min-h-[100dvh] bg-obsidian-900">
       <Navbar />
 
       <div className="pt-24 pb-20 max-w-3xl mx-auto px-6">

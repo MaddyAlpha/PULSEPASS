@@ -60,7 +60,7 @@ export default function MyPassesPage() {
   }
 
   return (
-    <div className="min-h-screen bg-obsidian-900">
+    <div className="min-h-[100dvh] bg-obsidian-900">
       <Navbar />
 
       <div className="pt-20 pb-16 max-w-6xl mx-auto px-6">

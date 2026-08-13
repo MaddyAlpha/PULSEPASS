@@ -78,7 +78,7 @@ export default function EventFeedPage() {
   }, [fetchEvents])
 
   return (
-    <div className="min-h-screen bg-obsidian-900">
+    <div className="min-h-[100dvh] bg-obsidian-900">
       <Navbar />
 
       <div className="pt-20 pb-16">

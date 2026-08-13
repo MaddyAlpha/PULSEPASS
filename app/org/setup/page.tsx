@@ -112,14 +112,14 @@ export default function OrgSetupWizard() {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-obsidian-950 flex items-center justify-center">
+      <div className="min-h-[100dvh] bg-obsidian-950 flex items-center justify-center">
         <Loader2 className="w-8 h-8 text-cyber-green animate-spin" />
       </div>
     )
   }
 
   return (
-    <div className="min-h-screen bg-obsidian-950 flex items-center justify-center p-6">
+    <div className="min-h-[100dvh] bg-obsidian-950 flex items-center justify-center p-6">
       <div className="w-full max-w-2xl relative">
         {/* Background Glow */}
         <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[120%] h-[120%] 

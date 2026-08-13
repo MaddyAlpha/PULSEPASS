@@ -230,13 +230,13 @@ export default function VerifierPage() {
   }, [eventId])
 
   if (authChecking) {
-    return <div className="min-h-screen bg-obsidian-900 flex items-center justify-center">
+    return <div className="min-h-[100dvh] bg-obsidian-900 flex items-center justify-center">
       <Loader2 className="w-8 h-8 text-cyber-green animate-spin" />
     </div>
   }
 
   if (!authorized) {
-    return <div className="min-h-screen bg-obsidian-900 flex items-center justify-center p-6">
+    return <div className="min-h-[100dvh] bg-obsidian-900 flex items-center justify-center p-6">
       <div className="text-center">
         <Shield className="w-12 h-12 text-red-400 mx-auto mb-4" />
         <h2 className="font-bold text-xl mb-2">Access Denied</h2>

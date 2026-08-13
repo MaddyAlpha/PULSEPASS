@@ -331,7 +331,7 @@ export default function OrgDashboardPage() {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-obsidian-900 flex items-center justify-center">
+      <div className="min-h-[100dvh] bg-obsidian-900 flex items-center justify-center">
         <Loader2 className="w-8 h-8 text-cyber-green animate-spin" />
       </div>
     )
@@ -339,7 +339,7 @@ export default function OrgDashboardPage() {
 
   if (!org) {
     return (
-      <div className="min-h-screen bg-obsidian-900 flex items-center justify-center">
+      <div className="min-h-[100dvh] bg-obsidian-900 flex items-center justify-center">
         <div className="text-center max-w-md">
           <Zap className="w-12 h-12 text-cyber-green mx-auto mb-4" />
           <h2 className="text-xl font-bold mb-2">No Organization Found</h2>
@@ -423,7 +423,7 @@ export default function OrgDashboardPage() {
   ]
 
   return (
-    <div className="min-h-screen bg-obsidian-900">
+    <div className="min-h-[100dvh] bg-obsidian-900">
       <Navbar />
       <div className="pt-20 pb-16">
         {/* Header */}

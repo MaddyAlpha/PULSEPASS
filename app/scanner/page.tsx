@@ -71,14 +71,14 @@ export default function ScannerIndexPage() {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-obsidian-900 flex items-center justify-center">
+      <div className="min-h-[100dvh] bg-obsidian-900 flex items-center justify-center">
         <Loader2 className="w-8 h-8 text-cyber-green animate-spin" />
       </div>
     )
   }
 
   return (
-    <div className="min-h-screen bg-obsidian-900">
+    <div className="min-h-[100dvh] bg-obsidian-900">
       <Navbar />
       <div className="pt-24 px-6 max-w-4xl mx-auto">
         <div className="flex items-center gap-3 mb-8">

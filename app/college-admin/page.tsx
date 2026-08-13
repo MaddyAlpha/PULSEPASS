@@ -274,7 +274,7 @@ export default function CollegeAdminPage() {
   }
 
   if (loading) return (
-    <div className="min-h-screen bg-obsidian-950 flex items-center justify-center">
+    <div className="min-h-[100dvh] bg-obsidian-950 flex items-center justify-center">
       <Loader2 className="w-8 h-8 text-cyber-green animate-spin" />
     </div>
   )
@@ -283,7 +283,7 @@ export default function CollegeAdminPage() {
   const reviewed = requests.filter(r => r.status !== 'pending')
 
   return (
-    <div className="min-h-screen bg-obsidian-950 text-white">
+    <div className="min-h-[100dvh] bg-obsidian-950 text-white">
       {/* Header */}
       <div className="border-b border-white/[0.06] sticky top-0 z-50"
         style={{ background: 'rgba(5,7,9,0.97)', backdropFilter: 'blur(20px)' }}>

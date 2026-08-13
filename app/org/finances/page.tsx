@@ -99,14 +99,14 @@ export default function FinancesPage() {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-obsidian-900 flex items-center justify-center">
+      <div className="min-h-[100dvh] bg-obsidian-900 flex items-center justify-center">
         <Loader2 className="w-8 h-8 text-cyber-green animate-spin" />
       </div>
     )
   }
 
   return (
-    <div className="min-h-screen bg-obsidian-900">
+    <div className="min-h-[100dvh] bg-obsidian-900">
       <Navbar />
       <div className="pt-24 pb-16 max-w-6xl mx-auto px-6 space-y-8">
         <div>

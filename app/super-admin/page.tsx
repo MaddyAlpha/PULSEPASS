@@ -339,7 +339,7 @@ export default function SuperAdminPage() {
 
   if (loading) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-obsidian-950">
+      <div className="min-h-[100dvh] flex items-center justify-center bg-obsidian-950">
         <div className="flex flex-col items-center gap-4">
           <Loader2 className="w-10 h-10 text-cyber-green animate-spin" />
           <p className="text-white/40 text-sm">Loading Super Admin Portal...</p>
@@ -349,7 +349,7 @@ export default function SuperAdminPage() {
   }
 
   return (
-    <div className="min-h-screen bg-obsidian-950 text-white">
+    <div className="min-h-[100dvh] bg-obsidian-950 text-white">
       {/* Header */}
       <div className="border-b border-white/[0.06] sticky top-0 z-50"
         style={{ background: 'rgba(5,7,9,0.97)', backdropFilter: 'blur(20px)' }}>

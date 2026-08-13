@@ -25,7 +25,7 @@ export default async function SuperAdminLayout({
   }
 
   return (
-    <div className="min-h-screen bg-obsidian-950">
+    <div className="min-h-[100dvh] bg-obsidian-950">
       {children}
     </div>
   )
