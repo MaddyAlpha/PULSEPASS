@@ -134,7 +134,7 @@ export default function GatekeeperScannerPage() {
           INVALID_QR: { title: 'Invalid QR', message: 'QR code is invalid or expired' },
           INVALID_STATUS: { title: 'Invalid Ticket', message: data.message },
         }
-        const display = reasonMap[data.reason] || { title: 'Scan Failed', message: data.message }
+        const display = reasonMap[data.reason] || { title: 'Scan Failed', message: data.message || data.error || JSON.stringify(data) }
         setResult({ state: 'error', ...display })
         setScanState('error')
         if (navigator.vibrate) navigator.vibrate([200, 100, 200, 100, 200])

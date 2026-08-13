@@ -106,7 +106,7 @@ export async function POST(request: NextRequest) {
     return NextResponse.json(scanResult)
   } catch (err) {
     console.error('[/api/station2-scan POST]', err)
-    return NextResponse.json({ error: 'Internal server error' }, { status: 500 })
+    return NextResponse.json({ error: 'Internal server error: ' + (err instanceof Error ? err.message : String(err)) }, { status: 500 })
   }
 }
 
