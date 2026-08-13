@@ -18,32 +18,32 @@ const FEATURES = [
   },
   {
     icon: Scan,
-    title: 'Real-Time QR Scanner',
-    desc: 'Mobile-first camera scanner for gatekeepers — validates tickets in under 200ms with haptic feedback.',
+    title: 'Multi-Station Check-In',
+    desc: 'Split workloads seamlessly between Mobile Scanners (Station 2) and Verifiers (Station 3).',
     glow: 'rgba(0,200,255,0.1)',
   },
   {
-    icon: BarChart3,
-    title: 'Live Analytics',
-    desc: 'Track ticket conversions, scan rates, and peak entry hours on your org command center.',
+    icon: Zap,
+    title: 'Real-Time Sync',
+    desc: 'Instant ticket broadcasting to verifier dashboards via Supabase Channels with zero latency.',
     glow: 'rgba(255,200,0,0.1)',
   },
   {
     icon: Shield,
     title: 'Role-Based Security',
-    desc: 'Granular RBAC — from Super Admin to hired Gatekeeper — backed by Supabase RLS policies.',
+    desc: 'Granular RBAC — from Super Admin to hired Gatekeeper — backed by strict database RLS policies.',
     glow: 'rgba(200,100,255,0.1)',
   },
   {
     icon: Users,
-    title: 'Supervisor Hiring',
-    desc: 'Invite students as Event Supervisors with scoped access to specific events via invite codes.',
+    title: 'CR Batch Routing',
+    desc: 'Automatically route specific student roll number prefixes to designated verifier volunteers.',
     glow: 'rgba(0,255,102,0.12)',
   },
   {
-    icon: Zap,
-    title: 'Atomic Check-Ins',
-    desc: 'Race-condition-free PostgreSQL functions prevent double entries — every scan is a database transaction.',
+    icon: BarChart3,
+    title: 'Live Admitted Tracking',
+    desc: 'Track ticket conversions, scan rates, and view recently admitted attendees in a sleek live modal.',
     glow: 'rgba(255,150,0,0.1)',
   },
 ]
@@ -58,12 +58,26 @@ const TICKER_ITEMS = [
 ]
 
 const cardVariants = {
-  hidden: { opacity: 0, y: 24 },
+  hidden: { opacity: 0, y: 24, scale: 0.95 },
   visible: (i: number) => ({
     opacity: 1,
     y: 0,
-    transition: { delay: i * 0.07, duration: 0.5, ease: 'easeOut' },
+    scale: 1,
+    transition: { delay: i * 0.1, duration: 0.6, type: 'spring', bounce: 0.4 },
   }),
+}
+
+const staggerContainer = {
+  hidden: { opacity: 0 },
+  visible: {
+    opacity: 1,
+    transition: { staggerChildren: 0.15 }
+  }
+}
+
+const childVariants = {
+  hidden: { opacity: 0, y: 20 },
+  visible: { opacity: 1, y: 0, transition: { type: 'spring', bounce: 0.5 } }
 }
 
 export default function LandingPage() {
@@ -74,10 +88,13 @@ export default function LandingPage() {
         style={{ background: 'rgba(10,13,15,0.85)', backdropFilter: 'blur(16px)' }}>
         <div className="max-w-7xl mx-auto px-6 h-16 flex items-center justify-between">
           <Link href="/" className="flex items-center gap-2.5 group">
-            <div className="w-8 h-8 rounded-lg flex items-center justify-center"
+            <motion.div 
+              whileHover={{ rotate: 180 }}
+              transition={{ duration: 0.3 }}
+              className="w-8 h-8 rounded-lg flex items-center justify-center"
               style={{ background: 'linear-gradient(135deg, #00FF66, #00B846)' }}>
               <Zap className="w-4 h-4 text-obsidian-900" strokeWidth={2.5} />
-            </div>
+            </motion.div>
             <span className="text-lg font-bold tracking-tight">
               Pulse<span className="text-cyber-green">Pass</span>
             </span>
@@ -91,9 +108,11 @@ export default function LandingPage() {
 
           <div className="flex items-center gap-3">
             <Link href="/auth" className="btn-ghost text-sm">Sign In</Link>
-            <Link href="/auth?tab=signup" className="btn-cyber text-sm">
-              Get Started <ArrowRight className="w-4 h-4" />
-            </Link>
+            <motion.div whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }}>
+              <Link href="/auth?tab=signup" className="btn-cyber text-sm">
+                Get Started <ArrowRight className="w-4 h-4" />
+              </Link>
+            </motion.div>
           </div>
         </div>
       </nav>
@@ -102,14 +121,21 @@ export default function LandingPage() {
       <section className="relative min-h-[100dvh] flex flex-col items-center justify-center pt-16 cyber-grid"
         style={{ backgroundSize: '40px 40px' }}>
         {/* Glow orb */}
-        <div className="absolute top-1/4 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[600px] h-[600px] rounded-full pointer-events-none"
-          style={{ background: 'radial-gradient(ellipse, rgba(0,255,102,0.12) 0%, transparent 70%)' }} />
+        <motion.div 
+          animate={{ scale: [1, 1.1, 1], opacity: [0.5, 0.8, 0.5] }}
+          transition={{ duration: 4, repeat: Infinity, ease: "easeInOut" }}
+          className="absolute top-1/4 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[600px] h-[600px] rounded-full pointer-events-none"
+          style={{ background: 'radial-gradient(ellipse, rgba(0,255,102,0.15) 0%, transparent 70%)' }} />
 
         <CyberParticles />
 
-        <div className="relative z-10 text-center px-6 max-w-5xl mx-auto">
+        <motion.div 
+          variants={staggerContainer}
+          initial="hidden"
+          animate="visible"
+          className="relative z-10 text-center px-6 max-w-5xl mx-auto">
           {/* Badge */}
-          <div
+          <motion.div variants={childVariants}
             className="inline-flex items-center gap-2 px-4 py-2 rounded-full mb-8 text-xs font-semibold tracking-widest uppercase"
             style={{
               background: 'rgba(0,255,102,0.08)',
@@ -118,34 +144,38 @@ export default function LandingPage() {
             }}>
             <span className="w-1.5 h-1.5 rounded-full bg-cyber-green animate-pulse" />
             Campus Event Engine · Now Live
-          </div>
+          </motion.div>
 
           {/* Headline */}
-          <h1
+          <motion.h1 variants={childVariants}
             className="text-5xl md:text-7xl font-black tracking-tight mb-6 leading-[1.05]">
             The Future of<br />
             <span className="text-glow-green">Campus Events</span>
-          </h1>
+          </motion.h1>
 
-          <p
+          <motion.p variants={childVariants}
             className="text-lg md:text-xl text-white/55 max-w-2xl mx-auto mb-10 leading-relaxed">
             One platform for clubs to publish events, students to claim digital VIP passes,
             and gatekeepers to scan QR codes in real-time — all secured by{' '}
             <span className="text-white/80">Supabase row-level security</span>.
-          </p>
+          </motion.p>
 
-          <div
+          <motion.div variants={childVariants}
             className="flex flex-wrap items-center justify-center gap-4 relative z-50">
-            <Link href="/auth?tab=signup&role=org" className="btn-cyber px-8 py-4 text-base">
-              Register Your Club <ArrowRight className="w-5 h-5" />
-            </Link>
-            <Link href="/events" className="btn-cyber-outline px-8 py-4 text-base">
-              Explore Campus Events
-            </Link>
-          </div>
+            <motion.div whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }}>
+              <Link href="/auth?tab=signup&role=org" className="btn-cyber px-8 py-4 text-base shadow-[0_0_40px_rgba(0,255,102,0.4)]">
+                Register Your Club <ArrowRight className="w-5 h-5" />
+              </Link>
+            </motion.div>
+            <motion.div whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }}>
+              <Link href="/events" className="btn-cyber-outline px-8 py-4 text-base">
+                Explore Campus Events
+              </Link>
+            </motion.div>
+          </motion.div>
 
           {/* Social proof */}
-          <div
+          <motion.div variants={childVariants}
             className="flex items-center justify-center gap-6 mt-12 text-sm text-white/40">
             <div className="flex items-center gap-2">
               <CheckCircle2 className="w-4 h-4 text-cyber-green" />
@@ -159,8 +189,8 @@ export default function LandingPage() {
               <CheckCircle2 className="w-4 h-4 text-cyber-green" />
               <span>Setup in 2 minutes</span>
             </div>
-          </div>
-        </div>
+          </motion.div>
+        </motion.div>
 
         {/* Scroll cue */}
         <div
@@ -188,7 +218,7 @@ export default function LandingPage() {
               Everything a campus needs
             </h2>
             <p className="text-white/50 text-lg max-w-2xl mx-auto">
-              From ticket creation to live check-in scanning — a complete end-to-end
+              From multi-station check-ins to live verification tracking — a complete end-to-end
               event operations platform built for modern universities.
             </p>
           </motion.div>
@@ -201,14 +231,15 @@ export default function LandingPage() {
               custom={i}
               initial="hidden"
               whileInView="visible"
-              viewport={{ once: true }}
+              whileHover={{ y: -8, scale: 1.02, transition: { duration: 0.2 } }}
+              viewport={{ once: true, margin: "-50px" }}
               variants={cardVariants}
-              className="glass-card-hover p-6 group">
-              <div className="w-12 h-12 rounded-xl flex items-center justify-center mb-5 transition-all duration-300 group-hover:scale-110"
+              className="glass-card-hover p-6 group cursor-default">
+              <div className="w-12 h-12 rounded-xl flex items-center justify-center mb-5 transition-all duration-300 group-hover:scale-110 group-hover:rotate-3"
                 style={{ background: f.glow, border: `1px solid ${f.glow}` }}>
                 <f.icon className="w-5 h-5 text-cyber-green" />
               </div>
-              <h3 className="font-bold text-lg mb-2">{f.title}</h3>
+              <h3 className="font-bold text-lg mb-2 group-hover:text-cyber-green transition-colors">{f.title}</h3>
               <p className="text-white/50 text-sm leading-relaxed">{f.desc}</p>
             </motion.div>
           ))}
@@ -218,7 +249,11 @@ export default function LandingPage() {
       {/* ── Role Showcase ── */}
       <section id="roles" className="py-24 px-6 relative overflow-hidden">
         {/* Background accent */}
-        <div className="absolute inset-0 cyber-grid opacity-50" style={{ backgroundSize: '60px 60px' }} />
+        <motion.div 
+          animate={{ backgroundPosition: ['0px 0px', '60px 60px'] }}
+          transition={{ duration: 20, repeat: Infinity, ease: 'linear' }}
+          className="absolute inset-0 cyber-grid opacity-30" 
+          style={{ backgroundSize: '60px 60px' }} />
         <div className="absolute inset-0"
           style={{ background: 'radial-gradient(ellipse 60% 60% at 50% 50%, rgba(0,255,102,0.04) 0%, transparent 100%)' }} />
 
@@ -233,26 +268,27 @@ export default function LandingPage() {
             <motion.div
               initial={{ opacity: 0, x: -30 }}
               whileInView={{ opacity: 1, x: 0 }}
+              whileHover={{ scale: 1.02 }}
               viewport={{ once: true }}
               transition={{ duration: 0.6 }}
-              className="glass-card p-8">
+              className="glass-card p-8 group">
               <div className="flex items-center gap-3 mb-6">
-                <div className="w-12 h-12 rounded-xl flex items-center justify-center"
+                <div className="w-12 h-12 rounded-xl flex items-center justify-center group-hover:scale-110 transition-transform"
                   style={{ background: 'rgba(0,255,102,0.1)', border: '1px solid rgba(0,255,102,0.2)' }}>
                   <Building2 className="w-6 h-6 text-cyber-green" />
                 </div>
                 <div>
-                  <h3 className="font-bold text-xl">For Clubs & Orgs</h3>
+                  <h3 className="font-bold text-xl group-hover:text-cyber-green transition-colors">For Clubs & Orgs</h3>
                   <p className="text-white/40 text-sm">Command center access</p>
                 </div>
               </div>
               <ul className="space-y-3">
                 {[
-                  'Create events with capacity caps & ticket types',
-                  'Generate shareable event pages instantly',
-                  'Hire students as gatekeepers via invite codes',
+                  'Create events with capacity caps & VIP ticket types',
+                  'Multi-station check-ins (Mobile Scanners + Verifiers)',
+                  'Hire student volunteers and assign CR batch prefixes',
                   'Live analytics: scan rates, peak hours, conversions',
-                  'Real-time attendee list with check-in status',
+                  'Real-time admitted list with zero latency',
                 ].map(item => (
                   <li key={item} className="flex items-start gap-3 text-sm text-white/70">
                     <CheckCircle2 className="w-4 h-4 text-cyber-green shrink-0 mt-0.5" />
@@ -271,26 +307,27 @@ export default function LandingPage() {
             <motion.div
               initial={{ opacity: 0, x: 30 }}
               whileInView={{ opacity: 1, x: 0 }}
+              whileHover={{ scale: 1.02 }}
               viewport={{ once: true }}
               transition={{ duration: 0.6 }}
-              className="glass-card p-8">
+              className="glass-card p-8 group">
               <div className="flex items-center gap-3 mb-6">
-                <div className="w-12 h-12 rounded-xl flex items-center justify-center"
+                <div className="w-12 h-12 rounded-xl flex items-center justify-center group-hover:scale-110 transition-transform"
                   style={{ background: 'rgba(100,150,255,0.1)', border: '1px solid rgba(100,150,255,0.2)' }}>
                   <GraduationCap className="w-6 h-6 text-blue-400" />
                 </div>
                 <div>
-                  <h3 className="font-bold text-xl">For Students</h3>
+                  <h3 className="font-bold text-xl group-hover:text-blue-400 transition-colors">For Students</h3>
                   <p className="text-white/40 text-sm">Your digital pass wallet</p>
                 </div>
               </div>
               <ul className="space-y-3">
                 {[
-                  'Browse upcoming campus events filtered by club & date',
+                  'Browse upcoming campus events filtered by club',
                   'One-tap claim General or VIP digital passes',
-                  'Pass wallet with live status: Valid / Checked-In / Expired',
-                  'Download ticket PDF for offline access',
-                  'Become a gatekeeper for extra campus opportunities',
+                  'Pass wallet with live status: Valid / Pending / Admitted',
+                  'Lightning-fast JWT-based QR codes for entry',
+                  'Become a verifier volunteer for extra campus opportunities',
                 ].map(item => (
                   <li key={item} className="flex items-start gap-3 text-sm text-white/70">
                     <Star className="w-4 h-4 text-blue-400 shrink-0 mt-0.5" />
