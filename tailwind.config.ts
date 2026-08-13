@@ -7,6 +7,19 @@ module.exports = {
   ],
   theme: {
     extend: {
+      fontSize: {
+        'xs': ['clamp(0.75rem, 0.7vw + 0.5rem, 0.875rem)', { lineHeight: '1.5' }],
+        'sm': ['clamp(0.875rem, 0.8vw + 0.5rem, 1rem)', { lineHeight: '1.5' }],
+        'base': ['clamp(1rem, 1vw + 0.5rem, 1.125rem)', { lineHeight: '1.5' }],
+        'lg': ['clamp(1.125rem, 1.2vw + 0.5rem, 1.25rem)', { lineHeight: '1.5' }],
+        'xl': ['clamp(1.25rem, 1.5vw + 0.5rem, 1.5rem)', { lineHeight: '1.5' }],
+        '2xl': ['clamp(1.5rem, 2vw + 0.5rem, 1.875rem)', { lineHeight: '1.2' }],
+        '3xl': ['clamp(1.875rem, 2.5vw + 0.5rem, 2.25rem)', { lineHeight: '1.2' }],
+        '4xl': ['clamp(2.25rem, 3vw + 0.5rem, 3rem)', { lineHeight: '1.1' }],
+        '5xl': ['clamp(3rem, 4vw + 0.5rem, 4rem)', { lineHeight: '1' }],
+        '6xl': ['clamp(3.75rem, 5vw + 0.5rem, 5rem)', { lineHeight: '1' }],
+        '7xl': ['clamp(4.5rem, 6vw + 0.5rem, 6rem)', { lineHeight: '1' }],
+      },
       colors: {
         cyber: {
           green: '#00FF66',
