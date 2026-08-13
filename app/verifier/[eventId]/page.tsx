@@ -13,7 +13,7 @@ import { useParams, useRouter } from 'next/navigation'
 import { motion, AnimatePresence } from 'framer-motion'
 import {
   Shield, CheckCircle2, XCircle, Loader2, ArrowLeft,
-  Clock, Star, User, Zap, RefreshCw, Bell
+  Clock, Star, User, Zap, RefreshCw, Bell, Users, X
 } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 import type { Event, GateRealtimePayload } from '@/lib/types'
@@ -44,6 +44,31 @@ export default function VerifierPage() {
   const [connected, setConnected] = useState(false)
   const [flashGreen, setFlashGreen] = useState(false)
   const [crBatchPrefix, setCrBatchPrefix] = useState<string | null>(null)
+
+  const [showAdmitted, setShowAdmitted] = useState(false)
+  const [recentAdmitted, setRecentAdmitted] = useState<any[]>([])
+  const [loadingAdmitted, setLoadingAdmitted] = useState(false)
+
+  const fetchRecentAdmitted = async () => {
+    setLoadingAdmitted(true)
+    const { data } = await supabase
+      .from('checkins')
+      .select(`
+        id, scanned_at,
+        ticket:tickets(ticket_type, profile:profiles(full_name, email, avatar_url))
+      `)
+      .eq('event_id', eventId)
+      .eq('success', true)
+      .order('scanned_at', { ascending: false })
+      .limit(50)
+    
+    if (data) setRecentAdmitted(data)
+    setLoadingAdmitted(false)
+  }
+
+  useEffect(() => {
+    if (showAdmitted) fetchRecentAdmitted()
+  }, [showAdmitted, eventId])
 
   // Audio feedback using Web Audio API
   const playBeep = (success: boolean) => {
@@ -393,12 +418,73 @@ export default function VerifierPage() {
             <div className={`w-2 h-2 rounded-full ${connected ? 'bg-cyber-green animate-pulse' : 'bg-red-400'}`} />
             <span className="text-white/40 text-xs">{connected ? 'Realtime Connected' : 'Reconnecting...'}</span>
           </div>
-          <div className="flex items-center gap-2 text-white/30 text-xs">
-            <Zap className="w-3.5 h-3.5" />
-            Station 3 of 3 · Final Admit
-          </div>
+          <button 
+            onClick={() => setShowAdmitted(true)}
+            className="flex items-center gap-2 text-cyber-green text-xs font-bold px-3 py-1.5 rounded-lg hover:bg-cyber-green/10 transition-colors">
+            <Users className="w-4 h-4" />
+            View Admitted
+          </button>
         </div>
       </div>
+
+      {/* Admitted Modal */}
+      <AnimatePresence>
+        {showAdmitted && (
+          <motion.div
+            initial={{ opacity: 0, y: 100 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: 100 }}
+            className="fixed inset-x-0 bottom-0 z-50 flex flex-col bg-obsidian-900 border-t border-white/10 shadow-[0_-10px_40px_rgba(0,0,0,0.5)]"
+            style={{ maxHeight: '80vh', borderTopLeftRadius: '24px', borderTopRightRadius: '24px' }}>
+            
+            <div className="flex items-center justify-between p-5 border-b border-white/5">
+              <div>
+                <h3 className="font-bold text-lg text-white">Recently Admitted</h3>
+                <p className="text-xs text-white/40">Last 50 successful check-ins</p>
+              </div>
+              <button onClick={() => setShowAdmitted(false)} className="p-2 bg-white/5 hover:bg-white/10 rounded-full transition-colors">
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+            
+            <div className="flex-1 overflow-y-auto p-5">
+              {loadingAdmitted ? (
+                <div className="flex justify-center py-10"><Loader2 className="w-6 h-6 text-cyber-green animate-spin" /></div>
+              ) : recentAdmitted.length === 0 ? (
+                <div className="text-center py-10 text-white/40">No one admitted yet</div>
+              ) : (
+                <div className="space-y-3">
+                  {recentAdmitted.map((record) => {
+                    // Supabase returns related tables as arrays or objects depending on cardinality. 
+                    // tickets is 1:1 for a checkin logically, but could be an array or object.
+                    const ticket = Array.isArray(record.ticket) ? record.ticket[0] : record.ticket;
+                    const profile = ticket?.profile ? (Array.isArray(ticket.profile) ? ticket.profile[0] : ticket.profile) : null;
+                    
+                    return (
+                      <div key={record.id} className="flex items-center gap-3 p-3 rounded-xl bg-white/5">
+                        <div className="w-10 h-10 rounded-lg overflow-hidden bg-white/10 flex-shrink-0 flex items-center justify-center">
+                          {profile?.avatar_url ? (
+                            <img src={profile.avatar_url} alt="" className="w-full h-full object-cover" />
+                          ) : (
+                            <User className="w-5 h-5 text-white/30" />
+                          )}
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <p className="font-semibold text-sm truncate">{profile?.full_name || 'Anonymous'}</p>
+                          <p className="text-xs text-white/40 truncate">{ticket?.ticket_type?.toUpperCase()} PASS</p>
+                        </div>
+                        <div className="text-xs text-white/30 whitespace-nowrap">
+                          {new Date(record.scanned_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                        </div>
+                      </div>
+                    )
+                  })}
+                </div>
+              )}
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
     </div>
   )
 }

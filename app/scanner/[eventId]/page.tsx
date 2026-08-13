@@ -91,8 +91,18 @@ export default function GatekeeperScannerPage() {
     return () => { channelRef.current?.unsubscribe() }
   }, [eventId])
 
+  const lastScannedRef = useRef<{ code: string, time: number }>({ code: '', time: 0 })
+
   const processQrScan = useCallback(async (rawQrText: string) => {
     if (scanCooldown || scanState === 'loading') return
+    
+    // Prevent duplicate scans of the exact same QR code within 10 seconds
+    const now = Date.now()
+    if (lastScannedRef.current.code === rawQrText && (now - lastScannedRef.current.time) < 10000) {
+      return
+    }
+    lastScannedRef.current = { code: rawQrText, time: now }
+
     setScanCooldown(true)
     setScanState('loading')
 
